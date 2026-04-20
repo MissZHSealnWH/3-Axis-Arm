@@ -1,7 +1,7 @@
 /**
  * @file PWMmotor.c
  * @editor CaoLiangRui
- * @Data 2026.4.20
+ * @date 2026.4.20
  * @brief 霍尔亚博520直流电机驱动器控制实现
  */
 
