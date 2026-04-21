@@ -18,11 +18,14 @@
 
 
 extern TaskHandle_t ARM_Handle;
+extern TaskHandle_t ARM2_Handle;
+
 
 void Task_Init(void);
 
 // ÈÎÎñº¯Êý
 void ARM(void *pvParameters);
+void ARM2(void *pvParameters);
 #endif
 
 

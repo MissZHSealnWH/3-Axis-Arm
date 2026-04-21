@@ -3,7 +3,11 @@
 #include "tim.h"
 #include "PWMmotor.h"
 	
+	
+
+
 void Task_Init(){
+	
 	
 	// TIM2、TIM5 自由度均比TIM3要更大
 	
@@ -21,6 +25,13 @@ void Task_Init(){
         NULL,
         3,
         &ARM_Handle); 
+	
+	xTaskCreate(ARM2,
+      	"ARM2",
+        400,
+        NULL,
+        3,
+        &ARM2_Handle); 
 	
  vPortExitCritical();
 	
