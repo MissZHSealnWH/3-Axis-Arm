@@ -2,12 +2,18 @@
 #include "main.h"
 #include "tim.h"
 #include "PWMmotor.h"
-	
-	
+#include "usart.h"
 
+	
+extern uint8_t g_recv_flag; 
+extern uint8_t g_recv_buff[RXBUFF_LEN];
+extern uint8_t g_recv_buff_deal[RXBUFF_LEN];
 
 void Task_Init(){
 	
+	HAL_UART_Receive_DMA(&huart4, g_recv_buff, RXBUFF_LEN);
+
+	__HAL_UART_ENABLE_IT(&huart4, UART_IT_IDLE);
 	
 	// TIM2、TIM5 自由度均比TIM3要更大
 	
@@ -32,6 +38,13 @@ void Task_Init(){
         NULL,
         3,
         &ARM2_Handle); 
+				
+//	xTaskCreate(ARM3,
+//      	"ARM3",
+//        400,
+//        NULL,
+//        3,
+//        &ARM3_Handle); 
 	
  vPortExitCritical();
 	

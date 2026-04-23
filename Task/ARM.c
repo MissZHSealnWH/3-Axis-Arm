@@ -79,7 +79,7 @@ TIM_Exp_Prama htim3_Exp = {
 	uint32_t Tim3_val;
 	uint32_t Tim5_val;
 
-uint8_t the_trigger = 0;
+uint8_t the_trigger = 0;// 逐步执行动作标志位
 
 TaskHandle_t ARM_Handle;
 void ARM(void *pvParameters)

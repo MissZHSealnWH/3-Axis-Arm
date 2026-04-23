@@ -18,11 +18,12 @@
 typedef struct
 {
 PID2 pid;
+	
 }motor_PID;
 
 typedef struct
 {
-	int16_t current_encoder;
+	int16_t Exp_encoder;
 }Param;
 
 #endif
