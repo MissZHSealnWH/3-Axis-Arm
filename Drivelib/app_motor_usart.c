@@ -1,14 +1,16 @@
 #include "app_motor_usart.h"
 
-#define RXBUFF_LEN 100
-
 uint8_t send_buff[50];
+
+extern uint8_t send_buff1[50];
+extern uint8_t send_buff2[50];
+extern volatile uint8_t send_busy;
 
 float g_Speed[4];
 int Encoder_Offset[4];
 int Encoder_Now[4];
 
-uint8_t g_recv_flag; 
+volatile uint8_t g_recv_flag; 
 uint8_t g_recv_buff[RXBUFF_LEN];
 uint8_t g_recv_buff_deal[RXBUFF_LEN];
 
@@ -66,10 +68,28 @@ void send_upload_data(bool ALLEncoder_Switch,bool TenEncoder_Switch,bool Speed_S
 }
 
 //控制速度	Controlling Speed
-void Contrl_Speed(int16_t M1_speed,int16_t M2_speed,int16_t M3_speed,int16_t M4_speed)
+//void Contrl_Speed(int16_t M1_speed,int16_t M2_speed,int16_t M3_speed,int16_t M4_speed)
+//{
+//	sprintf((char*)send_buff,"$spd:%d,%d,%d,%d#",M1_speed,M2_speed,M3_speed,M4_speed);
+//	Send_Motor_Array(send_buff, strlen((char*)send_buff));
+//}
+void Contrl_Speed(int16_t M1_speed, int16_t M2_speed, int16_t M3_speed, int16_t M4_speed)
 {
-	sprintf((char*)send_buff,"$spd:%d,%d,%d,%d#",M1_speed,M2_speed,M3_speed,M4_speed);
-	Send_Motor_Array(send_buff, strlen((char*)send_buff));
+    // 选择一个当前未被 DMA 使用的缓冲区
+    // 如果 send_busy == 1，那么 send_buff1/send_buff2 其中之一正在被 DMA 用，
+    // 另一个以及 pending_buf 可能空闲，我们用那个空闲的构造新数据。
+    // 简单策略：轮流使用，只要不和正在 DMA 操作的缓冲区相同即可。
+    static uint8_t *current_buf = send_buff1;
+    
+    if (send_busy) {
+        // DMA 正在使用 current_buf，我们就用另一个
+        current_buf = (current_buf == send_buff1) ? send_buff2 : send_buff1;
+    }
+    // 安全构造数据
+    sprintf((char*)current_buf, "$spd:%d,%d,%d,%d#", M1_speed, M2_speed, M3_speed, M4_speed);
+    
+    // 将构造好的缓冲区传递给发送框架（由框架决定立即发送还是排队）
+    Send_Motor_Frame(current_buf, strlen((char*)current_buf));
 }
 
 
@@ -104,40 +124,40 @@ void splitString(char* mystrArray[],char *str, const char *delimiter)
 //Check the data sent from the driver board, and save the data that meets the communication protocol
 void Deal_Control_Rxtemp(uint8_t rxtemp)
 {
-	static uint8_t step = 0;
-	static uint8_t start_flag = 0;
+    static uint8_t step = 0;
+    static uint8_t start_flag = 0;
 
-	if(rxtemp == '$' && start_flag == 0)
-	{
-		start_flag = 1;
-		memset(g_recv_buff,0,RXBUFF_LEN);//清空数据	Clear data
-	}
-	
-	else if(start_flag == 1)
-	{
-			if(rxtemp == '#')
-			{
-				start_flag = 0;
-				step = 0;
-				g_recv_flag = 1;
-				memcpy(g_recv_buff_deal,g_recv_buff,RXBUFF_LEN); //只有正确才会赋值	Only correct ones will be assigned
-			}
-			else
-			{
-				if(step > RXBUFF_LEN)
-				{
-					start_flag = 0;
-					step = 0;
-					memset(g_recv_buff,0,RXBUFF_LEN);//清空接收数据	Clear received data
-				}
-				else
-				{
-					g_recv_buff[step] = rxtemp;
-					step++;
-				}
-			}
-	}
-	
+    if(rxtemp == '$')                 // 收到起始符，永远重新开始一帧
+    {
+        start_flag = 1;
+        step = 0;
+        memset(g_recv_buff, 0, RXBUFF_LEN);
+    }
+    else if(start_flag == 1)
+    {
+        if(rxtemp == '#')            // 帧结束
+        {
+            start_flag = 0;
+            step = 0;
+            g_recv_flag = 1;
+            memcpy(g_recv_buff_deal, g_recv_buff, RXBUFF_LEN);
+        }
+        else
+        {
+            if(step < RXBUFF_LEN - 1)     // 保留一个位置给 '\0'，防止溢出
+            {
+                g_recv_buff[step++] = rxtemp;
+            }
+            else
+            {
+                // 缓冲区满，丢弃该帧，复位
+                start_flag = 0;
+                step = 0;
+                memset(g_recv_buff, 0, RXBUFF_LEN);
+            }
+        }
+    }
+    // else: 不在帧内，直接丢弃杂散字节
 }
 
 //将从驱动板保存到的数据进行格式处理，然后准备打印

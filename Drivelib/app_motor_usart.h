@@ -14,7 +14,7 @@ extern uint8_t times;
 #include "bsp_motor_usart.h"
 
 
-
+#define RXBUFF_LEN 100
 //外部声明区	External declaration area
 typedef enum _motor_type  //此类型用做判断死区	This type is used to determine the dead zone
 {
@@ -33,7 +33,7 @@ typedef enum _motor_type  //此类型用做判断死区	This type is used to determine th
 extern int Encoder_Offset[4];
 extern int Encoder_Now[4];
 extern float g_Speed[4];
-extern uint8_t g_recv_flag;
+extern volatile uint8_t g_recv_flag;
 
 
 void send_motor_type(motor_type_t data);
