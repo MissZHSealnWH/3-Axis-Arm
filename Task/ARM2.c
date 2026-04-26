@@ -5,9 +5,36 @@
 #include "PID_old.h"
 #include "get_pose.h"
 
-motor_PID Motor1_PID;
-motor_PID Motor2_PID;
-motor_PID Motor3_PID;
+motor_PID Motor1_PID = {
+	.pid = {
+		.Kp = 0.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
+		.limit = 10000.0f,
+		.output_limit = 20.0f
+	}
+	
+};
+motor_PID Motor2_PID = {
+	.pid = {
+		.Kp = 0.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
+		.limit = 10000.0f,
+		.output_limit = 20.0f
+	}
+	
+};
+motor_PID Motor3_PID = {
+	.pid = {
+		.Kp = 0.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
+		.limit = 10000.0f,
+		.output_limit = 20.0f
+	}
+	
+};
 
 Param motor1;
 Param motor2;
@@ -16,12 +43,11 @@ Param motor3;
 extern int Encoder_Offset[4];
 extern int Encoder_Now[4];
 extern float g_Speed[4];
-extern uint8_t g_recv_flag;
+extern volatile uint8_t g_recv_flag;
 
 TaskHandle_t ARM2_Handle;
 void ARM2(void *pvParameters)
 {
- TickType_t Last_wake_time = xTaskGetTickCount();
 	
 //	Contrl_Pwm(0,0,0,NULL);// 配置三路电机PWM
 	
@@ -38,18 +64,45 @@ void ARM2(void *pvParameters)
 	vTaskDelay(100);
 	send_motor_deadzone(1900);//配置电机死区,实验得出
 	vTaskDelay(100);
+//	send_motor_PID(4, 0.01, 1);
+//	vTaskDelay(100);
 	
+ TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
+
 		// 电机 1 (底座)
-		PID_Control2(Encoder_Offset[0], motor1.Exp_encoder, &Motor1_PID.pid);
+		PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
 		// 电机 2 `
-		PID_Control2(Encoder_Offset[1], motor2.Exp_encoder, &Motor2_PID.pid);
+		PID_Control2(Encoder_Now[1], motor2.Exp_encoder, &Motor2_PID.pid);
 		// 电机 3 
-		PID_Control2(Encoder_Offset[2], motor3.Exp_encoder, &Motor3_PID.pid);
+		PID_Control2(Encoder_Now[2], motor3.Exp_encoder, &Motor3_PID.pid);
 		
-		Contrl_Speed((int16_t)Motor1_PID.pid.pid_out, (int16_t)Motor2_PID.pid.pid_out, (int16_t)Motor3_PID.pid.pid_out, NULL);
+		Contrl_Speed(
+		(int16_t)Motor1_PID.pid.pid_out, 
+		(int16_t)Motor2_PID.pid.pid_out, 
+		(int16_t)Motor3_PID.pid.pid_out, 
+		 NULL);
 		
- vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(2));
+ vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
 	}
 }
+
+
+TaskHandle_t Analysis_Handle;
+void Analysis(void *pvParameters)
+{
+ TickType_t Last_wake_time = xTaskGetTickCount();
+	for(;;)
+	{
+		if(g_recv_flag == 1)
+		{
+			g_recv_flag = 0;
+			Deal_data_real();
+		}
+		
+ vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
+	}
+}
+
+
