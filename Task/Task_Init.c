@@ -5,36 +5,27 @@
 #include "usart.h"
 
 	
-extern uint8_t g_recv_flag; 
+extern volatile uint8_t g_recv_flag; 
 extern uint8_t g_recv_buff[RXBUFF_LEN];
 extern uint8_t g_recv_buff_deal[RXBUFF_LEN];
+volatile uint8_t uart4_rx_byte;
 
 void Task_Init(){
 	
-	HAL_UART_Receive_DMA(&huart4, g_recv_buff, RXBUFF_LEN);
-
-	__HAL_UART_ENABLE_IT(&huart4, UART_IT_IDLE);
-	
-	// TIM2、TIM5 自由度均比TIM3要更大
-	
-	// 电机初始化
-  motor520_Init(&htim2);// 底座旋转
-	motor520_Init(&htim3);// 末端
-	motor520_Init(&htim5);// 底座上面的竖直前后旋转
-	
+	HAL_UART_Receive_IT(&huart4, &uart4_rx_byte, 1);
 
  vPortEnterCritical();
 	
-	xTaskCreate(ARM,
-      	"ARM",
+	xTaskCreate(Analysis,
+      	"Analysis",
         400,
         NULL,
         3,
-        &ARM_Handle); 
+        &Analysis_Handle); 
 	
 	xTaskCreate(ARM2,
       	"ARM2",
-        400,
+        768,
         NULL,
         3,
         &ARM2_Handle); 
@@ -50,3 +41,20 @@ void Task_Init(){
 	
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart->Instance == UART4)
+    {
+        Deal_Control_Rxtemp(uart4_rx_byte);
+
+        // 重新打开接收（必须！）
+         HAL_UART_Receive_IT(&huart4, &uart4_rx_byte, 1);
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if(huart->Instance == UART4) {
+        HAL_UART_Receive_IT(&huart4, &uart4_rx_byte, 1);  // 重启动接收
+    }
+}
