@@ -1,0 +1,1 @@
+volley_r2_h7_v1\startup_stm32h723xx.o: startup_stm32h723xx.s
