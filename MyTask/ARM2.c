@@ -5,6 +5,7 @@
 #include "PID_old.h"
 #include "get_pose.h"
 #include "micro_kdl.h"
+#include "uplink_drv.h"
 
 motor_PID Motor1_PID;
 motor_PID Motor2_PID;
@@ -20,6 +21,7 @@ extern float g_Speed[4];
 extern volatile uint8_t g_recv_flag;
 
 Mikdl_Robot RoboArm = {
+
 	.l1 = 0.0f,
 	.m1 = 0.0f,
 	.c1 = 0.0f,
@@ -29,12 +31,15 @@ Mikdl_Robot RoboArm = {
 	.gravity = 9.8f
 };
 
+Mikdl_Vector3 RoboArmMikdl = {
+	x = ,
+	y = ,
+	z = 
+};
+
 TaskHandle_t ARM2_Handle;
 void ARM2(void *pvParameters)
 {
-	
-//	Contrl_Pwm(0,0,0,NULL);// 配置三路电机PWM
-	
 	send_upload_data(true, true, true);
 	
 	// 配置全部电机(广播)
@@ -50,6 +55,8 @@ void ARM2(void *pvParameters)
 	vTaskDelay(100);
 //	send_motor_PID(4, 0.01, 1);
 //	vTaskDelay(100);
+	
+	mikdl_robot_default(&RoboArm);
 	
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
@@ -82,11 +89,16 @@ void Analysis(void *pvParameters)
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-		if(g_recv_flag == 1)
-		{
-			g_recv_flag = 0;
-			Deal_data_real();
+		UplinkCommand cmd;
+		if (Uplink_GetCommand(&cmd)) {
+				// cmd.x, cmd.y, cmd.z 包含最新的目标坐标
+				// 在这里调用机械臂控制接口（如 RobotControl_SetCartesianTarget）
+			
 		}
+    
+		
+		
+		
 		
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
 	}
