@@ -1,6 +1,7 @@
 #include "Task_Init.h"
 #include "main.h"
 #include "usart.h"
+#include "uplink_drv.h"
 
 	
 extern volatile uint8_t g_recv_flag; 
@@ -10,7 +11,11 @@ uint8_t uart7_rx_byte;
 
 void Task_Init(){
 	
+  // 与电机驱动模块通信
 	HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);
+	
+	// 与上位机通信
+	Uplink_Init();
 
  vPortEnterCritical();
 
@@ -39,7 +44,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
         Deal_Control_Rxtemp(uart7_rx_byte);
 
-        // 重新打开接收（必须！）
+        // 重新打开接收
          HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);
     }
 }
