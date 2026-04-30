@@ -38,6 +38,29 @@ void Task_Init(){
 	
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// 电机反馈
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if(huart->Instance == UART7)
@@ -55,3 +78,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
         HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);  // 重启动接收
     }
 }
+/**/
+
+
