@@ -3,15 +3,18 @@
 
 #include <stdint.h>
 
-#define UPLINK_FRAME_LEN 14   /* 2(帧头) + 3*4(float) */
+#define UPLINK_FRAME_LEN 5   // 2(包头包尾) + 3*1(int8_t)
+#define FRAME_START 0xAA     // 包头
+#define FRAME_LAST 0x55      // 包尾
 
-/* 三个轴的命令数据 */
+// 三个轴的命令数据 (char)
 typedef struct {
-    float x;
-    float y;
-    float z;
+    int8_t x;
+    int8_t y;
+    int8_t z;
 } UplinkCommand;
 
 void Uplink_Init(void);
-int Uplink_GetCommand(UplinkCommand *cmd);  /* 返回 1 有新命令，0 无 */
+int Uplink_GetCommand(UplinkCommand *cmd);  // 返回1有新命令，0无 
+
 #endif
