@@ -7,6 +7,20 @@
 #include "micro_kdl.h"
 #include "uplink_drv.h"
 
+static Mikdl_Robot robot;             // 机械臂结构体
+static Mikdl_Vector3 q_curr;          // 当前关节角度
+static Mikdl_Vector3 p_curr;          // 当前末端位置
+
+// 梯形规划轨迹相关
+static Mikdl_TrapProfile trap;
+static Mikdl_Vector3 p_start;
+static Mikdl_Vector3 dir_unit;
+static float total_dist;
+static uint32_t traj_start_tick;
+static uint8_t traj_active = 0;
+
+
+
 motor_PID Motor1_PID;
 motor_PID Motor2_PID;
 motor_PID Motor3_PID;
@@ -15,10 +29,14 @@ Param motor1;
 Param motor2;
 Param motor3;
 
+static int ALL_num = 0; // 通信计数
+
+// 电机数据
 extern int Encoder_Offset[4];
 extern int Encoder_Now[4];
 extern float g_Speed[4];
 extern volatile uint8_t g_recv_flag;
+/**/
 
 Mikdl_Robot RoboArm = {
 
@@ -31,11 +49,7 @@ Mikdl_Robot RoboArm = {
 	.gravity = 9.8f
 };
 
-Mikdl_Vector3 RoboArmMikdl = {
-	x = ,
-	y = ,
-	z = 
-};
+
 
 TaskHandle_t ARM2_Handle;
 void ARM2(void *pvParameters)
@@ -43,18 +57,18 @@ void ARM2(void *pvParameters)
 	send_upload_data(true, true, true);
 	
 	// 配置全部电机(广播)
-	send_motor_type(MOTOR_520);// 配置电机类型
+	send_motor_type(MOTOR_520);      // 配置电机类型
 	vTaskDelay(100);
-	send_pulse_phase(56);//配置减速比 查电机手册得出
+	send_pulse_phase(56);            //配置减速比 查电机手册得出
 	vTaskDelay(100);
-	send_pulse_line(11);//配置磁环线 查电机手册得出
+	send_pulse_line(11);             //配置磁环线 查电机手册得出
 	vTaskDelay(100);
-	send_wheel_diameter(67.00);//配置轮子直径,测量得出
+	send_wheel_diameter(67.00);      //配置轮子直径,测量得出
 	vTaskDelay(100);
-	send_motor_deadzone(1900);//配置电机死区,实验得出
+	send_motor_deadzone(1900);       //配置电机死区,实验得出
 	vTaskDelay(100);
-//	send_motor_PID(4, 0.01, 1);
-//	vTaskDelay(100);
+	send_motor_PID(4, 0.01, 1);
+	vTaskDelay(100);
 	
 	mikdl_robot_default(&RoboArm);
 	
@@ -92,7 +106,7 @@ void Analysis(void *pvParameters)
 		UplinkCommand cmd;
 		if (Uplink_GetCommand(&cmd)) {
 				// cmd.x, cmd.y, cmd.z 包含最新的目标坐标
-				// 在这里调用机械臂控制接口（如 RobotControl_SetCartesianTarget）
+				// 在这里调用机械臂
 			
 		}
     
