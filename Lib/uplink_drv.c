@@ -11,6 +11,7 @@ static volatile uint8_t new_cmd_flag = 0;
 
 void Uplink_Init(void) 
 {
+	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, UPLINK_FRAME_LEN);
 	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 }
@@ -44,3 +45,4 @@ int Uplink_GetCommand(UplinkCommand *cmd)
 	}
 	return 0;
 }
+
