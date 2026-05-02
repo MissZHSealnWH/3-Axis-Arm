@@ -314,7 +314,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
+            <Optim>2</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -415,11 +415,6 @@
               <FilePath>../Core/Src/dma.c</FilePath>
             </File>
             <File>
-              <FileName>fdcan.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../Core/Src/fdcan.c</FilePath>
-            </File>
-            <File>
               <FileName>usart.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/usart.c</FilePath>
@@ -458,11 +453,6 @@
               <FileName>stm32h7xx_hal_cortex.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c</FilePath>
-            </File>
-            <File>
-              <FileName>stm32h7xx_hal_fdcan.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c</FilePath>
             </File>
             <File>
               <FileName>stm32h7xx_hal_rcc.c</FileName>
@@ -676,14 +666,14 @@
           <GroupName>Lib</GroupName>
           <Files>
             <File>
-              <FileName>get_pose.c</FileName>
+              <FileName>micro_kdl.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Lib\get_pose.c</FilePath>
+              <FilePath>..\Lib\micro_kdl.c</FilePath>
             </File>
             <File>
-              <FileName>get_pose.h</FileName>
+              <FileName>micro_kdl.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\Lib\get_pose.h</FilePath>
+              <FilePath>..\Lib\micro_kdl.h</FilePath>
             </File>
             <File>
               <FileName>motor520.c</FileName>
@@ -716,14 +706,44 @@
               <FilePath>..\Lib\PID_old.h</FilePath>
             </File>
             <File>
-              <FileName>micro_kdl.c</FileName>
+              <FileName>robot_control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Lib\micro_kdl.c</FilePath>
+              <FilePath>..\Lib\robot_control.c</FilePath>
             </File>
             <File>
-              <FileName>micro_kdl.h</FileName>
+              <FileName>robot_control.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\Lib\micro_kdl.h</FilePath>
+              <FilePath>..\Lib\robot_control.h</FilePath>
+            </File>
+            <File>
+              <FileName>step.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Lib\step.c</FilePath>
+            </File>
+            <File>
+              <FileName>step.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Lib\step.h</FilePath>
+            </File>
+            <File>
+              <FileName>trajectory_planner.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Lib\trajectory_planner.c</FilePath>
+            </File>
+            <File>
+              <FileName>trajectory_planner.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Lib\trajectory_planner.h</FilePath>
+            </File>
+            <File>
+              <FileName>uplink_drv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Lib\uplink_drv.c</FilePath>
+            </File>
+            <File>
+              <FileName>uplink_drv.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Lib\uplink_drv.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -754,6 +774,43 @@
         </Group>
         <Group>
           <GroupName>Remote_Control</GroupName>
+          <Files>
+            <File>
+              <FileName>comm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Remote_Control\comm.c</FilePath>
+            </File>
+            <File>
+              <FileName>comm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Remote_Control\comm.h</FilePath>
+            </File>
+            <File>
+              <FileName>comm_stm32_hal_middle.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Remote_Control\comm_stm32_hal_middle.c</FilePath>
+            </File>
+            <File>
+              <FileName>comm_stm32_hal_middle.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Remote_Control\comm_stm32_hal_middle.h</FilePath>
+            </File>
+            <File>
+              <FileName>data_poll.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Remote_Control\data_poll.c</FilePath>
+            </File>
+            <File>
+              <FileName>data_poll.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Remote_Control\data_poll.h</FilePath>
+            </File>
+            <File>
+              <FileName>dataFrame.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Remote_Control\dataFrame.h</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>::CMSIS</GroupName>

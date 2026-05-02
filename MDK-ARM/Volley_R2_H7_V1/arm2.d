@@ -17,7 +17,6 @@ volley_r2_h7_v1/arm2.o: ..\MyTask\ARM2.c ..\MyTask\ARM2.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h \
-  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_fdcan.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h \
@@ -40,4 +39,4 @@ volley_r2_h7_v1/arm2.o: ..\MyTask\ARM2.c ..\MyTask\ARM2.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\queue.h \
   ..\Lib\PID_old.h ..\Lib\motor520.h ..\Lib\motors520.h \
-  ..\Lib\get_pose.h ..\Lib\micro_kdl.h
+  ..\Lib\micro_kdl.h ..\Lib\uplink_drv.h

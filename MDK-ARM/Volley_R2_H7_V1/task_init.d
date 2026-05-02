@@ -16,7 +16,6 @@ volley_r2_h7_v1/task_init.o: ..\MyTask\Task_Init.c ..\MyTask\Task_Init.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h \
-  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_fdcan.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h \
@@ -39,4 +38,4 @@ volley_r2_h7_v1/task_init.o: ..\MyTask\Task_Init.c ..\MyTask\Task_Init.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
   ..\Middlewares\Third_Party\FreeRTOS\Source\include\queue.h \
   ..\Lib\PID_old.h ..\Lib\motor520.h ..\Lib\motors520.h \
-  ..\Core\Inc\usart.h
+  ..\Core\Inc\usart.h ..\Lib\uplink_drv.h
