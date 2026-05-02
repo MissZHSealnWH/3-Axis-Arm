@@ -14,11 +14,10 @@ void Task_Init(){
   // 与电机驱动模块通信
 	HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);
 	
-	// 与上位机通信
+	// 与上位机视觉通信
 	Uplink_Init();
 
  vPortEnterCritical();
-
 	
 	xTaskCreate(ARM2,
       	"ARM2",
@@ -29,7 +28,7 @@ void Task_Init(){
 				
 	xTaskCreate(Analysis,
       	"Analysis",
-        400,
+        1024,
         NULL,
         3,
         &Analysis_Handle); 
@@ -41,43 +40,24 @@ void Task_Init(){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // 电机反馈
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if(huart->Instance == UART7)
     {
-        Deal_Control_Rxtemp(uart7_rx_byte);
+			Deal_Control_Rxtemp(uart7_rx_byte);
 
-        // 重新打开接收
-         HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);
+			// 重新打开接收
+			HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);
     }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-    if(huart->Instance == UART7) {
-        HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);  // 重启动接收
+    if(huart->Instance == UART7) 
+		{
+			HAL_UART_Receive_IT(&huart7, &uart7_rx_byte, 1);  // 重启动接收
     }
 }
 /**/
-
 
