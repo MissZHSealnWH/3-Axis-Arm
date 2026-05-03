@@ -6,7 +6,7 @@
 #include "micro_kdl.h"
 #include "uplink_drv.h"
 
-static Mikdl_Robot RobotArm;             // 机械臂结构体
+static Mikdl_Robot RobotArm;          // 机械臂结构体
 static Mikdl_Vector3 q_curr;          // 当前关节角度
 static Mikdl_Vector3 p_curr;          // 当前末端位置
 
@@ -174,7 +174,7 @@ void Analysis(void *pvParameters)
 					 &tau_out);
 				
 				if (ret == MIKDL_SUCCESS) 
-				{
+		 		{
 					q_curr = q_out;
 					mikdl_forward_kinematics(&RobotArm, &q_curr, &p_curr);
 					ALL_num++;
@@ -185,9 +185,9 @@ void Analysis(void *pvParameters)
 					q_out = q_curr;
         }
         // 将 q_out 转换成电机期望位置
-        motor1.Exp_encoder = (int32_t)(q_out.x * RAD2ENC_FACTOR_JOINT1 + 0.5f);
-        motor2.Exp_encoder = (int32_t)(q_out.y * RAD2ENC_FACTOR_JOINT2 + 0.5f);
-        motor3.Exp_encoder = (int32_t)(q_out.z * RAD2ENC_FACTOR_JOINT3 + 0.5f);
+        motor1.Exp_encoder = (int32_t)(q_out.x * RAD2ENC_FACTOR_JOINT + 0.5f);
+        motor2.Exp_encoder = (int32_t)(q_out.y * RAD2ENC_FACTOR_JOINT + 0.5f);
+        motor3.Exp_encoder = (int32_t)(q_out.z * RAD2ENC_FACTOR_JOINT + 0.5f);
 
 				// 电机 1 (底座)
 				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
@@ -195,6 +195,14 @@ void Analysis(void *pvParameters)
 				PID_Control2(Encoder_Now[1], motor2.Exp_encoder, &Motor2_PID.pid);
 				// 电机 3 
 				PID_Control2(Encoder_Now[2], motor3.Exp_encoder, &Motor3_PID.pid);
+				
+//				float feedforward_1 = dq_out.x * RAD2ENC_FACTOR_JOINT;
+//				float feedforward_2 = dq_out.y * RAD2ENC_FACTOR_JOINT;
+//				float feedforward_3 = dq_out.z * RAD2ENC_FACTOR_JOINT;
+
+//				int16_t speed_1 = (int16_t)(Motor1_PID.pid.pid_out + feedforward_1);
+//				int16_t speed_2 = (int16_t)(Motor2_PID.pid.pid_out + feedforward_2);
+//				int16_t speed_3 = (int16_t)(Motor3_PID.pid.pid_out + feedforward_3);
 
 				Contrl_Speed(
 				(int16_t)Motor1_PID.pid.pid_out, 
