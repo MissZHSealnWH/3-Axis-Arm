@@ -3,10 +3,12 @@
 #include <math.h>
 #include <string.h>
 
+// 绝对值
 static float mikdl_fabsf(float value) {
     return value < 0.0f ? -value : value;
 }
 
+//限制value最大最小范围
 static float mikdl_clampf(float value, float min_value, float max_value) {
     if (value < min_value) {
         return min_value;
@@ -17,29 +19,35 @@ static float mikdl_clampf(float value, float min_value, float max_value) {
     return value;
 }
 
+// 返回三维向量的长度
 static float mikdl_vec_norm(const Mikdl_Vector3* value) {
     return sqrtf(value->x * value->x + value->y * value->y + value->z * value->z);
 }
 
+// 向量加
 static Mikdl_Vector3 mikdl_vec_add(Mikdl_Vector3 a, Mikdl_Vector3 b) {
     Mikdl_Vector3 result = {a.x + b.x, a.y + b.y, a.z + b.z};
     return result;
 }
 
+// 向量减
 static Mikdl_Vector3 mikdl_vec_sub(Mikdl_Vector3 a, Mikdl_Vector3 b) {
     Mikdl_Vector3 result = {a.x - b.x, a.y - b.y, a.z - b.z};
     return result;
 }
 
+// 向量数乘
 static Mikdl_Vector3 mikdl_vec_scale(Mikdl_Vector3 value, float scale) {
     Mikdl_Vector3 result = {value.x * scale, value.y * scale, value.z * scale};
     return result;
 }
 
+// 向量点积
 static float mikdl_vec_dot(Mikdl_Vector3 a, Mikdl_Vector3 b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+// 矩阵加分法
 static Mikdl_Matrix3 mikdl_mat_add(Mikdl_Matrix3 a, Mikdl_Matrix3 b) {
     Mikdl_Matrix3 result;
     for (int i = 0; i < 3; ++i) {
@@ -50,6 +58,7 @@ static Mikdl_Matrix3 mikdl_mat_add(Mikdl_Matrix3 a, Mikdl_Matrix3 b) {
     return result;
 }
 
+// 矩阵数乘
 static Mikdl_Matrix3 mikdl_mat_scale(Mikdl_Matrix3 matrix, float scale) {
     Mikdl_Matrix3 result;
     for (int i = 0; i < 3; ++i) {
@@ -60,6 +69,7 @@ static Mikdl_Matrix3 mikdl_mat_scale(Mikdl_Matrix3 matrix, float scale) {
     return result;
 }
 
+// 矩阵乘法
 static Mikdl_Matrix3 mikdl_mat_mul(Mikdl_Matrix3 a, Mikdl_Matrix3 b) {
     Mikdl_Matrix3 result;
     for (int i = 0; i < 3; ++i) {
@@ -73,6 +83,7 @@ static Mikdl_Matrix3 mikdl_mat_mul(Mikdl_Matrix3 a, Mikdl_Matrix3 b) {
     return result;
 }
 
+// 矩阵转置
 static Mikdl_Matrix3 mikdl_mat_transpose(Mikdl_Matrix3 matrix) {
     Mikdl_Matrix3 result;
     for (int i = 0; i < 3; ++i) {
@@ -83,6 +94,7 @@ static Mikdl_Matrix3 mikdl_mat_transpose(Mikdl_Matrix3 matrix) {
     return result;
 }
 
+// 矩阵与列向量的乘积
 static Mikdl_Vector3 mikdl_mat_mul_vec(const Mikdl_Matrix3* matrix, Mikdl_Vector3 value) {
     Mikdl_Vector3 result;
     result.x = matrix->m[0][0] * value.x + matrix->m[0][1] * value.y + matrix->m[0][2] * value.z;
@@ -91,12 +103,14 @@ static Mikdl_Vector3 mikdl_mat_mul_vec(const Mikdl_Matrix3* matrix, Mikdl_Vector
     return result;
 }
 
+// 计算矩阵的行列式
 static float mikdl_mat_det(Mikdl_Matrix3 matrix) {
     return matrix.m[0][0] * (matrix.m[1][1] * matrix.m[2][2] - matrix.m[1][2] * matrix.m[2][1]) -
            matrix.m[0][1] * (matrix.m[1][0] * matrix.m[2][2] - matrix.m[1][2] * matrix.m[2][0]) +
            matrix.m[0][2] * (matrix.m[1][0] * matrix.m[2][1] - matrix.m[1][1] * matrix.m[2][0]);
 }
 
+// 求逆矩阵
 static int mikdl_mat_inverse(Mikdl_Matrix3 matrix, Mikdl_Matrix3* inverse) {
     float det = mikdl_mat_det(matrix);
     if (mikdl_fabsf(det) < 1e-9f) {
@@ -117,10 +131,12 @@ static int mikdl_mat_inverse(Mikdl_Matrix3 matrix, Mikdl_Matrix3* inverse) {
     return 1;
 }
 
+// 缺少参数获取函数
 static float mikdl_default_or_value(float value, float default_value) {
     return value != 0.0f ? value : default_value;
 }
 
+// 从机器人参数中提取重力方向单位向量：若未设置（全 0），默认 (0,0,-1)，并归一化。
 static Mikdl_Vector3 mikdl_default_gravity_dir(const Mikdl_Robot* robot) {
     Mikdl_Vector3 dir = robot->gravity_dir;
     if (dir.x == 0.0f && dir.y == 0.0f && dir.z == 0.0f) {
@@ -140,18 +156,22 @@ static Mikdl_Vector3 mikdl_default_gravity_dir(const Mikdl_Robot* robot) {
     return mikdl_vec_scale(dir, 1.0f / norm);
 }
 
+// 获取机器人 DLS 阻尼系数
 static float mikdl_default_dls(const Mikdl_Robot* robot) {
     return robot->dls_lambda > 0.0f ? robot->dls_lambda : MIKDL_DEFAULT_DLS_LAMBDA;
 }
 
+// IK 误差容限
 static float mikdl_default_tol(const Mikdl_Robot* robot) {
     return robot->ik_tolerance > 0.0f ? robot->ik_tolerance : MIKDL_DEFAULT_IK_TOLERANCE;
 }
 
+// 最大迭代次数
 static int mikdl_default_max_iter(const Mikdl_Robot* robot) {
     return robot->ik_max_iterations > 0 ? robot->ik_max_iterations : MIKDL_DEFAULT_IK_MAX_ITERATIONS;
 }
 
+// 正运动学计算
 static void mikdl_compute_fk(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Vector3* p_out) {
     float s0 = sinf(q->x);
     float c0 = cosf(q->x);
@@ -166,6 +186,7 @@ static void mikdl_compute_fk(const Mikdl_Robot* robot, const Mikdl_Vector3* q, M
     p_out->z = robot->l1 * s1 + robot->l2 * s12;
 }
 
+// 计算末端位置相对于关节角的 几何雅可比矩阵（3×3）
 static void mikdl_compute_jacobian(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Matrix3* jacobian) {
     float s0 = sinf(q->x);
     float c0 = cosf(q->x);
@@ -193,6 +214,7 @@ static void mikdl_compute_jacobian(const Mikdl_Robot* robot, const Mikdl_Vector3
     jacobian->m[2][2] = dzdq2;
 }
 
+// 计算 连杆质心位置 相对于关节角的雅可比矩阵（线速度部分）
 static void mikdl_compute_com_jacobian_1(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Matrix3* jacobian) {
     float s0 = sinf(q->x);
     float c0 = cosf(q->x);
@@ -212,6 +234,7 @@ static void mikdl_compute_com_jacobian_1(const Mikdl_Robot* robot, const Mikdl_V
     jacobian->m[2][2] = 0.0f;
 }
 
+// 计算 连杆质心位置 相对于关节角的雅可比矩阵（线速度部分）
 static void mikdl_compute_com_jacobian_2(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Matrix3* jacobian) {
     float s0 = sinf(q->x);
     float c0 = cosf(q->x);
@@ -239,6 +262,7 @@ static void mikdl_compute_com_jacobian_2(const Mikdl_Robot* robot, const Mikdl_V
     jacobian->m[2][2] = dz_dq2;
 }
 
+// 计算关节空间的 质量矩阵 M（3×3）
 static void mikdl_compute_mass_matrix(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Matrix3* mass_matrix) {
     Mikdl_Matrix3 j1;
     Mikdl_Matrix3 j2;
@@ -258,6 +282,7 @@ static void mikdl_compute_mass_matrix(const Mikdl_Robot* robot, const Mikdl_Vect
     *mass_matrix = mikdl_mat_add(mikdl_mat_scale(jtj1, robot->m1), mikdl_mat_scale(jtj2, robot->m2));
 }
 
+// 计算 重力项 G（3×1 向量）
 static void mikdl_compute_gravity_vector(const Mikdl_Robot* robot, const Mikdl_Vector3* q, Mikdl_Vector3* gravity) {
     Mikdl_Matrix3 j1;
     Mikdl_Matrix3 j2;
@@ -275,6 +300,7 @@ static void mikdl_compute_gravity_vector(const Mikdl_Robot* robot, const Mikdl_V
     gravity->z = mikdl_vec_dot((Mikdl_Vector3){j1.m[0][2], j1.m[1][2], j1.m[2][2]}, f1) + mikdl_vec_dot((Mikdl_Vector3){j2.m[0][2], j2.m[1][2], j2.m[2][2]}, f2);
 }
 
+// 计算科里奥利和离心力项 
 static void mikdl_compute_coriolis_vector(const Mikdl_Robot* robot, const Mikdl_Vector3* q, const Mikdl_Vector3* dq, Mikdl_Vector3* coriolis) {
     const float eps = 1e-4f;
     Mikdl_Matrix3 m_plus;
@@ -327,6 +353,7 @@ static void mikdl_compute_coriolis_vector(const Mikdl_Robot* robot, const Mikdl_
     coriolis->z = result[2];
 }
 
+// 计算 外力（末端力）映射到关节力矩
 static void mikdl_compute_external_torque(const Mikdl_Robot* robot, const Mikdl_Vector3* q, const Mikdl_Vector3* f_ext, Mikdl_Vector3* tau_ext) {
     Mikdl_Matrix3 jacobian;
     Mikdl_Matrix3 j_t;
@@ -336,6 +363,7 @@ static void mikdl_compute_external_torque(const Mikdl_Robot* robot, const Mikdl_
     *tau_ext = mikdl_mat_mul_vec(&j_t, *f_ext);
 }
 
+// 雅可比的时间导数乘以关节速度，用于加速度映射
 static void mikdl_compute_jdot_times_dq(const Mikdl_Robot* robot, const Mikdl_Vector3* q, const Mikdl_Vector3* dq, Mikdl_Vector3* jdot_dq) {
     float s0 = sinf(q->x);
     float c0 = cosf(q->x);
@@ -353,6 +381,7 @@ static void mikdl_compute_jdot_times_dq(const Mikdl_Robot* robot, const Mikdl_Ve
     jdot_dq->z = -robot->l1 * s1 * dq->y * dq->y - robot->l2 * s12 * (dq->y + dq->z) * (dq->y + dq->z);
 }
 
+// 阻尼最小二乘法
 static int mikdl_solve_dls(const Mikdl_Matrix3* jacobian, const Mikdl_Vector3* rhs, float lambda, Mikdl_Vector3* x_out) {
     Mikdl_Matrix3 jj_t = mikdl_mat_mul(*jacobian, mikdl_mat_transpose(*jacobian));
     Mikdl_Matrix3 regularized = jj_t;
@@ -373,6 +402,7 @@ static int mikdl_solve_dls(const Mikdl_Matrix3* jacobian, const Mikdl_Vector3* r
     return 1;
 }
 
+// 根据目标位置生成逆运动学的初始关节角猜测
 static Mikdl_Vector3 mikdl_initial_guess(const Mikdl_Robot* robot, const Mikdl_Vector3* p_des, const Mikdl_Vector3* q_init) {
     if (q_init != NULL) {
         return *q_init;
@@ -392,10 +422,12 @@ static Mikdl_Vector3 mikdl_initial_guess(const Mikdl_Robot* robot, const Mikdl_V
     return guess;
 }
 
+// 判断机器人参数是否有效：指针非空且连杆长度 > 0
 static int mikdl_validate_robot(const Mikdl_Robot* robot) {
     return robot != NULL && robot->l1 > 0.0f && robot->l2 > 0.0f;
 }
 
+// 初始化 Mikdl_Robot 结构体的默认值，清零后设置重力、阻尼系数、误差容限、迭代次数为宏定义值。连杆长度和质量根据实际机器人填写
 void mikdl_robot_default(Mikdl_Robot* robot) {
     if (robot == NULL) {
         return;
@@ -622,6 +654,7 @@ int mikdl_cart_to_joint_control(const Mikdl_Robot* robot, const Mikdl_Vector3* p
     return MIKDL_SUCCESS;
 }
 
+// 初始化梯形速度轨迹规划参数
 void mikdl_trap_init(Mikdl_TrapProfile* prof, float start, float end, float max_vel, float max_acc) {
     float distance;
     float direction;
@@ -667,6 +700,7 @@ void mikdl_trap_init(Mikdl_TrapProfile* prof, float start, float end, float max_
     }
 }
 
+// 给定时间 t，输出当前时刻的 位置 p、速度 v、加速度 a
 void mikdl_trap_get(Mikdl_TrapProfile* prof, float t, float* p, float* v, float* a) {
     float direction;
     float accel;
@@ -752,3 +786,5 @@ void mikdl_trap_get(Mikdl_TrapProfile* prof, float t, float* p, float* v, float*
         *p = prof->p_start + direction * (cruise_distance + decel_distance);
     }
 }
+
+

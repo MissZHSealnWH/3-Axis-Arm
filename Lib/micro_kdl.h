@@ -21,13 +21,13 @@ typedef struct {
     float m1;// 大臂质量
     float m2;// 小臂质量
 	// 质心位置（相对于连杆近端）
-    float c1;
-    float c2;
-    float gravity;
-    Mikdl_Vector3 gravity_dir;
-    float dls_lambda;
-    float ik_tolerance;
-    int ik_max_iterations;
+    float c1;// 大臂质心距关节近端的距离
+    float c2;// 小臂质心距关节近端的距离
+    float gravity;     // 重力加速度大小 (默认 9.81)
+    Mikdl_Vector3 gravity_dir; // 重力方向单位向量 (默认 (0,0,-1))
+    float dls_lambda;          // 阻尼最小二乘法的阻尼系数
+    float ik_tolerance;        // 逆运动学误差容限
+    int ik_max_iterations;     // 逆运动学最大迭代次数
 } Mikdl_Robot;
 
 typedef struct {
@@ -38,7 +38,19 @@ typedef struct {
     float duration;
     float p_start;
     float p_end;
-} Mikdl_TrapProfile;
+} Mikdl_TrapProfile; // 梯形速度轨迹的参数块，存储加速时间、匀速结束时间、总时间、起点终点
+
+/*
+MIKDL_SUCCESS：操作成功
+MIKDL_ERR_INVALID_ARGUMENT：非法参数
+MIKDL_ERR_NO_CONVERGENCE：迭代未收敛
+MIKDL_DEFAULT_GRAVITY：默认重力加速度
+MIKDL_DEFAULT_DLS_LAMBDA：默认阻尼系数
+MIKDL_DEFAULT_IK_TOLERANCE：默认 IK 收敛阈值
+MIKDL_DEFAULT_IK_MAX_ITERATIONS：默认最大迭代次数
+MIKDL_PI：π 值，用于三角函数
+*/
+
 
 #define MIKDL_SUCCESS 0
 #define MIKDL_ERR_INVALID_ARGUMENT (-1)
@@ -115,3 +127,6 @@ void mikdl_trap_get(
 #endif
 
 #endif
+
+		
+		
