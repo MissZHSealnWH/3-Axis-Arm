@@ -9,12 +9,10 @@
 #define STEP_SIZE 0.03f      // 每一次前进/后退移动的距离 (米)
 #define M_PI 3.1415926535f
 
-#define ENCODER_PPR  8192.0f          // 编码器每转脉冲数
-#define REDUCTION    56.0f            // 减速比 1:56
 
-#define RAD2ENC_FACTOR_JOINT1  (REDUCTION * ENCODER_PPR / (2.0f * M_PI))
-#define RAD2ENC_FACTOR_JOINT2  (REDUCTION * ENCODER_PPR / (2.0f * M_PI))
-#define RAD2ENC_FACTOR_JOINT3  (REDUCTION * ENCODER_PPR / (2.0f * M_PI))
+#define PULSE_PER_REVOLUTION   (11 * 4)         // 44
+#define REDUCTION_RATIO        56               // 减速比
+#define RAD2ENC_FACTOR_JOINT  ((PULSE_PER_REVOLUTION * REDUCTION_RATIO) / (2.0f * M_PI))
 
 typedef struct
 {
