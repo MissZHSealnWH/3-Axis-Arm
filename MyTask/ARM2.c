@@ -30,13 +30,14 @@ Param motor3;
 
 static int ALL_num = 0; // 通信计数
 
+extern SemaphoreHandle_t g_EncoderMutex; 
+
 // 电机数据
 extern int Encoder_Offset[4];
 extern int Encoder_Now[4];
 extern float g_Speed[4];
 extern volatile uint8_t g_recv_flag;
 /**/
-
 
 TaskHandle_t ARM2_Handle;
 void ARM2(void *pvParameters)
@@ -63,7 +64,9 @@ void ARM2(void *pvParameters)
 		if(g_recv_flag == 1)
 		{
 			g_recv_flag = 0;
+			
 			Deal_data_real();
+			
 		}
 		
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
@@ -71,7 +74,7 @@ void ARM2(void *pvParameters)
 }
 
 void RobotArm_Init(void)
-{
+{	
     mikdl_robot_default(&RobotArm);
     RobotArm.l1 = 0.2f;
     RobotArm.l2 = 0.15f;
@@ -137,11 +140,12 @@ void Analysis(void *pvParameters)
 				float s, s_dot, s_ddot;
 				mikdl_trap_get(&trap, t_sec, &s, &s_dot, &s_ddot);
 
-				if (t_sec >= trap.duration) {
-						s = total_dist;
-						s_dot = 0.0f;
-						s_ddot = 0.0f;
-						traj_active = 0;
+				if (t_sec >= trap.duration) 
+				{
+					s = total_dist;
+					s_dot = 0.0f;
+					s_ddot = 0.0f;
+					traj_active = 0;
 				}
 
 				p_ref.x = p_start.x + dir_unit.x * s;
@@ -189,8 +193,23 @@ void Analysis(void *pvParameters)
         motor2.Exp_encoder = (int32_t)(q_out.y * RAD2ENC_FACTOR_JOINT + 0.5f);
         motor3.Exp_encoder = (int32_t)(q_out.z * RAD2ENC_FACTOR_JOINT + 0.5f);
 
+//		int32_t enc0, enc1, enc2;
+//		if(xSemaphoreTake(g_EncoderMutex, pdMS_TO_TICKS(5)) == pdTRUE)
+//		{
+//			enc0 = Encoder_Now[0];
+//			enc1 = Encoder_Now[1];
+//			enc2 = Encoder_Now[2];
+//			xSemaphoreGive(g_EncoderMutex);
+//		}
+//		else
+//		{
+//			enc0 = Encoder_Now[0];
+//			enc1 = Encoder_Now[1];
+//			enc2 = Encoder_Now[2];
+//		}
+				
 				// 电机 1 (底座)
-				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
+ 				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
 				// 电机 2 `
 				PID_Control2(Encoder_Now[1], motor2.Exp_encoder, &Motor2_PID.pid);
 				// 电机 3 
