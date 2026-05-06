@@ -4,97 +4,94 @@
 #include "main.h"
 #include <string.h>
 
-#define TX_BUF_SIZE 50
 
-/* 当前正在发送的帧缓冲区 */
+#define TX_BUF_SIZE 200
+
+/* 发送缓冲区 */
 static uint8_t tx_buf[TX_BUF_SIZE];
-static uint16_t tx_len = 0;
-static uint16_t tx_index = 0;
-static uint8_t tx_active = 0;          // 1 = 正在逐字节交互中
-
-/* pending 帧（单帧缓存，可扩展） */
-static uint8_t pending_buf[TX_BUF_SIZE];
-static uint16_t pending_len = 0;
-static uint8_t pending_flag = 0;       // 1 = 有 pending 帧
+static volatile uint16_t tx_len = 0;
+static volatile uint16_t tx_index = 0;
+static volatile uint8_t tx_busy = 0;    // 1 = 正在逐字节发送
 
 /* 接收单字节缓冲 */
-static uint8_t rx_byte;                // 接收回调存入此处
-
-
-
+static uint8_t rx_byte;
 
 /**
- * @brief 发送一帧数据（逐字节交互方式）
- * @param pData : 帧数据
- * @param Length: 长度（≤ TX_BUF_SIZE）
+ * @brief 电机串口初始化（仅开启接收中断）
+ */
+void Motor_Usart_Init(void)
+{
+    // 启动接收中断，此后接收一直常开
+    HAL_UART_Receive_IT(&huart7, &rx_byte, 1);
+}
+
+/**
+ * @brief 启动发送下一个字节（内部调用）
+ */
+static void start_tx_byte(void)
+{
+    if (tx_index < tx_len) {
+        HAL_UART_Transmit_IT(&huart7, &tx_buf[tx_index], 1);
+    } else {
+        tx_busy = 0;   // 发送完成
+    }
+}
+
+/**
+ * @brief 用户调用：发送一帧数据（中断逐字节方式）
+ * @param pData: 数据缓冲区
+ * @param Length: 长度
  */
 void Send_Motor_Array(uint8_t *pData, uint16_t Length)
 {
-    if (Length > TX_BUF_SIZE)
-        return;
+    if (Length > TX_BUF_SIZE) return;
 
-    if (tx_active == 0) {
-        // 空闲：直接启发送
-        memcpy(tx_buf, pData, Length);
-        tx_len = Length;
-        tx_index = 0;
-        tx_active = 1;
-
-        // 发送第一个字节（中断发送，只发1字节）
-        HAL_UART_Transmit_IT(&huart7, &tx_buf[0], 1);
-    } else {
-        // 正在发：挂起到 pending（只保留最新一帧，旧帧丢弃）
-        memcpy(pending_buf, pData, Length);
-        pending_len = Length;
-        pending_flag = 1;
+    // 等待上一次发送完成（简单阻塞，不丢帧）
+    while (tx_busy) {
+        // 可加超时退出，此处简单等待
     }
+
+    memcpy(tx_buf, pData, Length);
+    tx_len = Length;
+    tx_index = 0;
+    tx_busy = 1;
+    start_tx_byte();   // 发送第一个字节
 }
 
-
+/**
+ * @brief 发送完成回调
+ */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == UART7) {
-        // 一个字节发送完毕，立刻启动接收对方应答
-        HAL_UART_Receive_IT(&huart7, &rx_byte, 1);
+        tx_index++;
+        start_tx_byte();   // 发送下一个字节
     }
 }
-// 电机反馈
+
+/**
+ * @brief 接收完成回调
+ */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == UART7) {
-        // 1. 处理刚收到的应答字节（你的原有处理逻辑）
+        // 处理接收到的字节（协议解析，在 app 层实现）
         Deal_Control_Rxtemp(rx_byte);
 
-        // 2. 判断当前帧是否发完
-        if (tx_active) {
-            tx_index++;
-            if (tx_index < tx_len) {
-                // 还有字节，发送下一个
-                HAL_UART_Transmit_IT(&huart7, &tx_buf[tx_index], 1);
-            } else {
-                // 当前帧发送完毕
-                tx_active = 0;
-
-                // 3. 检查是否有 pending 帧，立即启动
-                if (pending_flag) {
-                    memcpy(tx_buf, pending_buf, pending_len);
-                    tx_len = pending_len;
-                    tx_index = 0;
-                    pending_flag = 0;
-                    tx_active = 1;
-                    HAL_UART_Transmit_IT(&huart7, &tx_buf[0], 1);
-                }
-            }
-        }
-        // 如果 tx_active == 0 且无 pending，则接收中断可停止（也可以保持常开，由别处管理）
+        // 重新打开接收中断（保持常开）
+        HAL_UART_Receive_IT(&huart7, &rx_byte, 1);
     }
 }
 
+/**
+ * @brief 串口错误回调
+ */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == UART7) {
-        // 有标志位错误时终止接收并重启，避免卡死
+        // 终止当前接收，清除错误标志
         HAL_UART_AbortReceive_IT(&huart7);
+        // 重启接收
         HAL_UART_Receive_IT(&huart7, &rx_byte, 1);
     }
 }

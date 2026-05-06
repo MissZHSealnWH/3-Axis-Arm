@@ -15,7 +15,8 @@
 
 void Send_Motor_Frame(uint8_t *buf, uint16_t len);
 void Send_Motor_Array(uint8_t *pData, uint16_t Length);
-
+void Motor_Usart_Init(void);
+static void start_tx_byte(void);
 
 
 #endif
