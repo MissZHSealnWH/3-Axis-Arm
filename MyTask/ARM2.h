@@ -20,9 +20,15 @@ typedef struct
 
 typedef struct
 {
-	int16_t Exp_encoder;
+	int32_t Exp_encoder;
 	float   Exp_speed;
 } Param;
+
+typedef struct
+{
+	int32_t T_encoder;
+	float   T_speed;
+}TEXT_Param;
 
 extern SemaphoreHandle_t g_EncoderMutex;
 

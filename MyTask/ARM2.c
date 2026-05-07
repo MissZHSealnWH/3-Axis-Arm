@@ -19,14 +19,51 @@ static uint32_t traj_start_tick;
 static uint8_t traj_active = 0;
 
 // PID
-motor_PID Motor1_PID;
-motor_PID Motor2_PID;
-motor_PID Motor3_PID;
+motor_PID Motor1_PID = {
+	.pid = {
+		.Kp = 10.0f,
+		.Ki = 0.05f,
+		.Kd = 150.0f,
+		.limit = 10000.0f,
+		.output_limit = 3000.0f
+	}
+};
+motor_PID Motor2_PID = {
+		.pid = {
+		.Kp = 10.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
+		.limit = 10000.0f,
+		.output_limit = 3000.0f
+	}
+};
+motor_PID Motor3_PID = {
+		.pid = {
+		.Kp = 10.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
+		.limit = 10000.0f,
+		.output_limit = 3000.0f
+	}
+};
 
 // 期望参数 
 Param motor1;
 Param motor2;
 Param motor3;
+
+TEXT_Param M1;
+TEXT_Param M2;
+TEXT_Param M3;
+
+float P;
+float I;
+float D;
+
+int16_t vel1;
+int16_t vel2;
+int16_t vel3;
+
 
 static int ALL_num = 0; // 通信计数
 
@@ -55,8 +92,10 @@ void ARM2(void *pvParameters)
 	vTaskDelay(100);
 	send_motor_deadzone(1900);       //配置电机死区,实验得出
 	vTaskDelay(100);
-	send_motor_PID(4, 0.01, 1);
+	send_motor_PID(0.1f, 0.0f, 0.0f);
+
 	vTaskDelay(100);
+	
 	
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
@@ -207,13 +246,13 @@ void Analysis(void *pvParameters)
 //			enc1 = Encoder_Now[1];
 //			enc2 = Encoder_Now[2];
 //		}
-				
+
 				// 电机 1 (底座)
- 				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
+ 				PID_Control2(Encoder_Now[0], M1.T_encoder, &Motor1_PID.pid);
 				// 电机 2 `
-				PID_Control2(Encoder_Now[1], motor2.Exp_encoder, &Motor2_PID.pid);
+				PID_Control2(Encoder_Now[1], M2.T_encoder, &Motor2_PID.pid);
 				// 电机 3 
-				PID_Control2(Encoder_Now[2], motor3.Exp_encoder, &Motor3_PID.pid);
+				PID_Control2(Encoder_Now[2], M3.T_encoder, &Motor3_PID.pid);
 				
 //				float feedforward_1 = dq_out.x * RAD2ENC_FACTOR_JOINT;
 //				float feedforward_2 = dq_out.y * RAD2ENC_FACTOR_JOINT;
@@ -224,10 +263,11 @@ void Analysis(void *pvParameters)
 //				int16_t speed_3 = (int16_t)(Motor3_PID.pid.pid_out + feedforward_3);
 
 				Contrl_Speed(
-				(int16_t)Motor1_PID.pid.pid_out, 
-				(int16_t)Motor2_PID.pid.pid_out, 
-				(int16_t)Motor3_PID.pid.pid_out, 
+				(int16_t)-Motor1_PID.pid.pid_out, 
+				(int16_t)-Motor2_PID.pid.pid_out, 
+				(int16_t)-Motor3_PID.pid.pid_out, 
 				 NULL);
+//				Contrl_Speed(vel1, vel2, vel3, NULL);
 				
 				
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
