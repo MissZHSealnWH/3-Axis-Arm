@@ -6,12 +6,16 @@
 
 #define MAX_VEL  0.2f
 #define MAX_ACC  0.5f
-#define STEP_SIZE 0.03f
+#define STEP_SIZE 0.05f
 #define M_PI 3.1415926535f
 
 #define PULSE_PER_REVOLUTION   (11 * 4)
 #define REDUCTION_RATIO        56
 #define RAD2ENC_FACTOR_JOINT  ((PULSE_PER_REVOLUTION * REDUCTION_RATIO) / (2.0f * M_PI))
+
+#define JOINT1_MIN   (-3.1416f)
+#define JOINT1_MAX   ( 3.1416f)
+
 
 typedef struct
 {
