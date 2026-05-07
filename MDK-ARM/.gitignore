@@ -1,0 +1,39 @@
+# IDE 和编辑器配置
+/.vscode/launch.json
+/.settings
+/.eide/log
+/.eide.usr.ctx.json
+
+# Keil MDK-ARM 编译产物和中间文件
+/build/
+/bin/
+/obj/
+/out/
+*.o
+*.a
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.d
+*.crf
+*.bak
+
+# Keil MDK-ARM 工程文件
+*.uvguix.*
+*.uvoptx
+*.uvprojx.bak
+*.scvd
+
+# JLink 日志文件
+JLinkLog.txt
+JLinkSettings.ini
+
+# 模板文件
+*.ept
+*.eide-template
+
+# 系统文件
+.DS_Store
+Thumbs.db
