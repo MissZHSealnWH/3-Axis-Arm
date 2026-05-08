@@ -22,9 +22,9 @@ static uint8_t traj_active = 0;
 // PID
 motor_PID Motor1_PID = {
 	.pid = {
-		.Kp = 10.0f,
-		.Ki = 0.05f,
-		.Kd = 150.0f,
+		.Kp = 0.0f,
+		.Ki = 0.0f,
+		.Kd = 0.0f,
 		.limit = 10000.0f,
 		.output_limit = 3000.0f
 	}
@@ -46,7 +46,7 @@ motor_PID Motor3_PID = {
 	  	.limit = 10000.0f,
 	  	.output_limit = 3000.0f
 	}
-};
+}; 
 
 // 期望参数 
 Param motor1;
@@ -60,7 +60,6 @@ TEXT_Param M3;
 int16_t vel_1;
 int16_t vel_2;
 int16_t vel_3;
-
 
 static int ALL_num = 0; // 总通信计数
 
@@ -81,16 +80,15 @@ void ARM2(void *pvParameters)
 	// 配置全部电机(广播)
 	send_motor_type(MOTOR_520);      // 配置电机类型
 	vTaskDelay(100);
-	send_pulse_phase(56);            //配置减速比 查电机手册得出
+	send_pulse_phase(56);            //配置减速比
 	vTaskDelay(100);
-	send_pulse_line(11);             //配置磁环线 查电机手册得出
+	send_pulse_line(11);             //配置磁环线
 	vTaskDelay(100);
-	send_wheel_diameter(67.00);      //配置轮子直径,测量得出
+	send_wheel_diameter(67.00);      //配置轮子直径
 	vTaskDelay(100);
-	send_motor_deadzone(1900);       //配置电机死区,实验得出
+	send_motor_deadzone(1900);       //配置电机死区
 	vTaskDelay(100);
-	send_motor_PID(0.1f, 0.0f, 0.0f);
-
+	send_motor_PID(0.7f, 0.0f, 0.1f);
 	vTaskDelay(100);
 	
  TickType_t Last_wake_time = xTaskGetTickCount();
@@ -101,7 +99,6 @@ void ARM2(void *pvParameters)
 			g_recv_flag = 0;
 			
 			Deal_data_real();
-			
 		}
 		
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
@@ -139,7 +136,7 @@ void Analysis(void *pvParameters)
 	for(;;)
 	{
 		  // 更新真实关节角和末端位置（基于编码器反馈）
-			q_curr.x = q_home.x + (float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT;
+			q_curr.x = q_home.x + (float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT0;
 			q_curr.y = q_home.y + (float)Encoder_Now[1] / RAD2ENC_FACTOR_JOINT;
 			q_curr.z = q_home.z + (float)Encoder_Now[2] / RAD2ENC_FACTOR_JOINT;
 		
@@ -226,7 +223,7 @@ void Analysis(void *pvParameters)
 					{
 					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
 						{
-							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT + 0.5f);
+							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT0 + 0.5f);
 							motor2.Exp_encoder = (int32_t)((q_out.y - q_home.y) * RAD2ENC_FACTOR_JOINT + 0.5f);
 							motor3.Exp_encoder = (int32_t)((q_out.z - q_home.z) * RAD2ENC_FACTOR_JOINT + 0.5f);
 							ALL_num++;
@@ -247,21 +244,6 @@ void Analysis(void *pvParameters)
 					  traj_active = 0;
 					}
 
-//		int32_t enc0, enc1, enc2;
-//		if(xSemaphoreTake(g_EncoderMutex, pdMS_TO_TICKS(5)) == pdTRUE)
-//		{
-//			enc0 = Encoder_Now[0];
-//			enc1 = Encoder_Now[1];
-//			enc2 = Encoder_Now[2];
-//			xSemaphoreGive(g_EncoderMutex);
-//		}
-//		else
-//		{
-//			enc0 = Encoder_Now[0];
-//			enc1 = Encoder_Now[1];
-//			enc2 = Encoder_Now[2];
-//		}
-
 				// 电机 1 (底座)
  				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID.pid);
 				// 电机 2 `
@@ -269,11 +251,12 @@ void Analysis(void *pvParameters)
 				// 电机 3 
 				PID_Control2(Encoder_Now[2], motor3.Exp_encoder, &Motor3_PID.pid);
 				
-				vel_1 = -Motor1_PID.pid.pid_out;
-				vel_2 = -Motor2_PID.pid.pid_out;
-				vel_3 = -Motor3_PID.pid.pid_out;
+				vel_1 = -(int16_t)Motor1_PID.pid.pid_out;
+				vel_2 = -(int16_t)Motor2_PID.pid.pid_out;
+				vel_3 = -(int16_t)Motor3_PID.pid.pid_out;
 				
-//				float feedforward_1 = dq_out.x * RAD2ENC_FACTOR_JOINT;
+// 备用速度前馈
+//				float feedforward_1 = dq_out.x * RAD2ENC_FACTOR_JOINT0;
 //				float feedforward_2 = dq_out.y * RAD2ENC_FACTOR_JOINT;
 //				float feedforward_3 = dq_out.z * RAD2ENC_FACTOR_JOINT;
 
