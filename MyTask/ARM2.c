@@ -10,6 +10,7 @@ static Mikdl_Robot RobotArm;          // 机械臂结构体
 static Mikdl_Vector3 q_curr;          // 当前关节角度
 static Mikdl_Vector3 p_curr;          // 当前末端位置
 static Mikdl_Vector3 q_home;          // 上电时机械臂姿态对应的关节角
+static int manual_test_done = 0;
 
 // 梯形规划轨迹相关
 static Mikdl_TrapProfile trap;
@@ -31,22 +32,22 @@ motor_PID Motor1_PID = {
 };
 motor_PID Motor2_PID = {
 		.pid = {
-		  .Kp = 10.0f,
-	  	.Ki = 0.05f,
-	  	.Kd = 150.0f,
+		  .Kp = 0.0f,
+	  	.Ki = 0.0f,
+	  	.Kd = 0.0f,
   		.limit = 10000.0f,
 	  	.output_limit = 3000.0f
 	}
 };
 motor_PID Motor3_PID = {
 		.pid = {
-			.Kp = 10.0f,
-	  	.Ki = 0.05f,
-	  	.Kd = 150.0f,
+			.Kp = 0.0f,
+	  	.Ki = 0.0f,
+	  	.Kd = 0.0f,
 	  	.limit = 10000.0f,
 	  	.output_limit = 3000.0f
 	}
-}; 
+};
 
 // 期望参数 
 Param motor1;
@@ -61,7 +62,7 @@ int16_t vel_1;
 int16_t vel_2;
 int16_t vel_3;
 
-static int ALL_num = 0; // 总通信计数
+ int ALL_num = 0; // 总通信计数
 
 extern SemaphoreHandle_t g_EncoderMutex; 
 
@@ -116,8 +117,8 @@ void RobotArm_Init(void)
     q_curr = q_home;
 	
 	  mikdl_robot_default(&RobotArm);
-    RobotArm.l1 = 0.2f;
-    RobotArm.l2 = 0.15f;
+    RobotArm.l1 = 0.15f;
+    RobotArm.l2 = 0.1f;
     RobotArm.m1 = 0.5f;
     RobotArm.m2 = 0.3f;
     RobotArm.c1 = 0.1f;
@@ -135,12 +136,37 @@ void Analysis(void *pvParameters)
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
+//		if (!manual_test_done) {
+//    cmd.x = 1;
+//    cmd.y = 0;
+//    cmd.z = 0;
+//    manual_test_done = 1;
+
+//    // 手动启动轨迹
+//    Mikdl_Vector3 p_target = p_curr;
+//    p_target.x += cmd.x * STEP_SIZE;
+//    float dx = p_target.x - p_curr.x;
+//    float dy = p_target.y - p_curr.y;
+//    float dz = p_target.z - p_curr.z;
+//    float dist = sqrtf(dx*dx + dy*dy + dz*dz);
+//    if (dist > 1e-6f) {
+//        p_start = p_curr;
+//        total_dist = dist;
+//        dir_unit.x = dx / dist;
+//        dir_unit.y = dy / dist;
+//        dir_unit.z = dz / dist;
+//        mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
+//        traj_start_tick = xTaskGetTickCount();
+//        traj_active = 1;
+//    }
+//}
 		  // 更新真实关节角和末端位置（基于编码器反馈）
 			q_curr.x = q_home.x + (float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT0;
 			q_curr.y = q_home.y + (float)Encoder_Now[1] / RAD2ENC_FACTOR_JOINT;
 			q_curr.z = q_home.z + (float)Encoder_Now[2] / RAD2ENC_FACTOR_JOINT;
 		
 			mikdl_forward_kinematics(&RobotArm, &q_curr, &p_curr);
+		
 		if (Uplink_GetCommand(&cmd)) 
 		 {
 			// 根据 cmd.x, cmd.y, cmd.z 计算末端目标位置
@@ -168,7 +194,7 @@ void Analysis(void *pvParameters)
 				traj_active = 1;
 			}
 		}
-		 
+
 
 			Mikdl_Vector3 p_ref, v_ref, a_ref;
 			Mikdl_Vector3 q_out, dq_out, tau_out;
@@ -221,7 +247,8 @@ void Analysis(void *pvParameters)
 				
 					if (ret == MIKDL_SUCCESS) 
 					{
-					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
+//					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
+						if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX && q_out.z >= JOINT2_MIN && q_out.z <= JOINT2_MAX)
 						{
 							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT0 + 0.5f);
 							motor2.Exp_encoder = (int32_t)((q_out.y - q_home.y) * RAD2ENC_FACTOR_JOINT + 0.5f);
@@ -235,7 +262,7 @@ void Analysis(void *pvParameters)
 							motor3.Exp_encoder = Encoder_Now[2];
 							traj_active = 0;
 				  	}
-					} 
+					}
 					else 
 					{
 						motor1.Exp_encoder = Encoder_Now[0];
