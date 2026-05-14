@@ -134,32 +134,34 @@ void Analysis(void *pvParameters)
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-		if (!manual_test_done) 
-		{
-			cmd.x = 1;
-			cmd.y = 0;
-			cmd.z = 0;
-			manual_test_done = 1;
+// 这段代码的存在仅用于验证cmd赋值后逆解的可行性
+//		if (!manual_test_done) 
+//		{
+//			cmd.x = 1;
+//			cmd.y = 0;
+//			cmd.z = 0;
+//			manual_test_done = 1;
 
-			// 手动启动轨迹
-			Mikdl_Vector3 p_target = p_curr;
-			p_target.x += cmd.x * STEP_SIZE;
-			float dx = p_target.x - p_curr.x;
-			float dy = p_target.y - p_curr.y;
-			float dz = p_target.z - p_curr.z;
-			float dist = sqrtf(dx*dx + dy*dy + dz*dz);
-			if (dist > 1e-6f) 
-			{
-				p_start = p_curr;
-				total_dist = dist;
-				dir_unit.x = dx / dist;
-				dir_unit.y = dy / dist;
-				dir_unit.z = dz / dist;
-				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
-				traj_start_tick = xTaskGetTickCount();
-				traj_active = 1;
-			}
-		}
+//			// 手动启动轨迹
+//			Mikdl_Vector3 p_target = p_curr;
+//			p_target.x += cmd.x * STEP_SIZE;
+//			float dx = p_target.x - p_curr.x;
+//			float dy = p_target.y - p_curr.y;
+//			float dz = p_target.z - p_curr.z;
+//			float dist = sqrtf(dx*dx + dy*dy + dz*dz);
+//			if (dist > 1e-6f) 
+//			{
+//				p_start = p_curr;
+//				total_dist = dist;
+//				dir_unit.x = dx / dist;
+//				dir_unit.y = dy / dist;
+//				dir_unit.z = dz / dist;
+//				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
+//				traj_start_tick = xTaskGetTickCount();
+//				traj_active = 1;
+//			}
+//		}
+
 		  // 更新真实关节角和末端位置（基于编码器反馈）
 			q_curr.x = q_home.x + (float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT0;
 			q_curr.y = q_home.y + (float)Encoder_Now[1] / RAD2ENC_FACTOR_JOINT;
@@ -244,7 +246,8 @@ void Analysis(void *pvParameters)
 					 &q_out, 
 					 &dq_out,
 					 &tau_out);
-//				
+			
+// 进行debug时保持注释状态
 //					if (ret == MIKDL_SUCCESS) 
 //					{
 ////					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
