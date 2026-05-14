@@ -19,14 +19,9 @@
 #define JOINT1_MIN 0
 #define JOINT1_MAX 3.1416f
 
-#define JOINT2_MIN -3.1416f
+#define JOINT2_MIN  0
 #define JOINT2_MAX  3.1416f
 
-
-typedef struct
-{
-	PID2 pid;
-} motor_PID;
 
 typedef struct
 {
