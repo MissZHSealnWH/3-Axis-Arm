@@ -103,8 +103,8 @@ void ARM2(void *pvParameters)
 void RobotArm_Init(void)
 {	
     // 初始关节角度 (0, 90, 90)
-    q_home.x = 0.0f;      // 底座0度
-    q_home.y = 1.5708f;   // 大臂垂直向上
+    q_home.x = 0.0f;      // 底座无要求
+    q_home.y = 0.7854f;   // 大臂45°
     q_home.z = 1.5708f;   // 小臂垂直向上
 	
 	  // 此时编码器刚上电，值为0，所以实际关节角 = q_home
@@ -134,33 +134,35 @@ void Analysis(void *pvParameters)
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-// 这段代码的存在仅用于验证cmd赋值后逆解的可行性
-//		if (!manual_test_done) 
-//		{
-//			cmd.x = 1;
-//			cmd.y = 0;
-//			cmd.z = 0;
-//			manual_test_done = 1;
+// 这段代码的存在仅用于验证cmd赋值后逆解的可行性 (注意因为debug使用编码器反馈一直为0所以达到目标值后直接归0)
+		if (!manual_test_done) 
+		{
+			cmd.x = 11;
+			cmd.y = 13;
+			cmd.z = 16;
+			manual_test_done = 1;
 
-//			// 手动启动轨迹
-//			Mikdl_Vector3 p_target = p_curr;
-//			p_target.x += cmd.x * STEP_SIZE;
-//			float dx = p_target.x - p_curr.x;
-//			float dy = p_target.y - p_curr.y;
-//			float dz = p_target.z - p_curr.z;
-//			float dist = sqrtf(dx*dx + dy*dy + dz*dz);
-//			if (dist > 1e-6f) 
-//			{
-//				p_start = p_curr;
-//				total_dist = dist;
-//				dir_unit.x = dx / dist;
-//				dir_unit.y = dy / dist;
-//				dir_unit.z = dz / dist;
-//				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
-//				traj_start_tick = xTaskGetTickCount();
-//				traj_active = 1;
-//			}
-//		}
+			// 手动启动轨迹
+			Mikdl_Vector3 p_target = p_curr;
+			p_target.x += cmd.x * STEP_SIZE;
+			p_target.y += cmd.y * STEP_SIZE;
+			p_target.z += cmd.z * STEP_SIZE;
+			float dx = p_target.x - p_curr.x;
+			float dy = p_target.y - p_curr.y;
+			float dz = p_target.z - p_curr.z;
+			float dist = sqrtf(dx*dx + dy*dy + dz*dz);
+			if (dist > 1e-6f) 
+			{
+				p_start = p_curr;
+				total_dist = dist;
+				dir_unit.x = dx / dist;
+				dir_unit.y = dy / dist;
+				dir_unit.z = dz / dist;
+				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
+				traj_start_tick = xTaskGetTickCount();
+				traj_active = 1;
+			}
+		}
 
 		  // 更新真实关节角和末端位置（基于编码器反馈）
 			q_curr.x = q_home.x + (float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT0;
@@ -183,7 +185,7 @@ void Analysis(void *pvParameters)
 			float dz = p_target.z - p_curr.z;
 			float dist = sqrtf(dx*dx + dy*dy + dz*dz); // 三维直线距离
 
-			if (dist > 1e-6f)
+			if (dist > 1e-6f) // 10的负六次方
 			{
 				p_start = p_curr;              // 记录起点
 				total_dist = dist;             // 总距离
@@ -248,31 +250,31 @@ void Analysis(void *pvParameters)
 					 &tau_out);
 			
 // 进行debug时保持注释状态
-//					if (ret == MIKDL_SUCCESS) 
-//					{
-////					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
-//						if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX && q_out.z >= JOINT2_MIN && q_out.z <= JOINT2_MAX)
-//						{
-//							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT0 + 0.5f);
-//							motor2.Exp_encoder = (int32_t)((q_out.y - q_home.y) * RAD2ENC_FACTOR_JOINT + 0.5f);
-//							motor3.Exp_encoder = (int32_t)((q_out.z - q_home.z) * RAD2ENC_FACTOR_JOINT + 0.5f);
-//							ALL_num++;
-//				  	} 
-//				   	else
-//						{
-//							motor1.Exp_encoder = Encoder_Now[0];
-//							motor2.Exp_encoder = Encoder_Now[1];
-//							motor3.Exp_encoder = Encoder_Now[2];
-//							traj_active = 0;
-//				  	}
-//					}
-//					else 
-//					{
-//						motor1.Exp_encoder = Encoder_Now[0];
-//						motor2.Exp_encoder = Encoder_Now[1];
-//						motor3.Exp_encoder = Encoder_Now[2];
-//					  traj_active = 0;
-//					}
+					if (ret == MIKDL_SUCCESS) 
+					{
+//					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
+						if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX && q_out.z >= JOINT2_MIN && q_out.z <= JOINT2_MAX)
+						{
+							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT0 + 0.5f);
+							motor2.Exp_encoder = (int32_t)((q_out.y - q_home.y) * RAD2ENC_FACTOR_JOINT + 0.5f);
+							motor3.Exp_encoder = (int32_t)((q_out.z - q_home.z) * RAD2ENC_FACTOR_JOINT + 0.5f);
+							ALL_num++;
+				  	} 
+				   	else
+						{
+							motor1.Exp_encoder = Encoder_Now[0];
+							motor2.Exp_encoder = Encoder_Now[1];
+							motor3.Exp_encoder = Encoder_Now[2];
+							traj_active = 0;
+				  	}
+					}
+					else 
+					{
+						motor1.Exp_encoder = Encoder_Now[0];
+						motor2.Exp_encoder = Encoder_Now[1];
+						motor3.Exp_encoder = Encoder_Now[2];
+					  traj_active = 0;
+					}
 
 				// 电机 1 (底座)
  				PID_Control2(Encoder_Now[0], motor1.Exp_encoder, &Motor1_PID);
@@ -281,22 +283,28 @@ void Analysis(void *pvParameters)
 				// 电机 3 
 				PID_Control2(Encoder_Now[2], motor3.Exp_encoder, &Motor3_PID);
 				
+// 原始输入
 				vel_1 = -(int16_t)Motor1_PID.pid_out;
 				vel_2 = -(int16_t)Motor2_PID.pid_out;
 				vel_3 = -(int16_t)Motor3_PID.pid_out;
-				
-// 备用速度前馈
+
+// 重力补偿
+				vel_1 = -(int16_t)(Motor1_PID.pid_out + TAU_TO_SPEED_FF * tau_out.x);
+				vel_2 = -(int16_t)(Motor2_PID.pid_out + TAU_TO_SPEED_FF * tau_out.y);
+				vel_3 = -(int16_t)(Motor3_PID.pid_out + TAU_TO_SPEED_FF * tau_out.z);
+					
+// 速度前馈
 //				float feedforward_0 = dq_out.x * RAD2ENC_FACTOR_JOINT0;
-				float feedforward_1 = dq_out.y * RAD2ENC_FACTOR_JOINT;
+//				float feedforward_1 = dq_out.y * RAD2ENC_FACTOR_JOINT;
 //				float feedforward_2 = dq_out.z * RAD2ENC_FACTOR_JOINT;
 
 //				int16_t speed_1 = (int16_t)(-(Motor1_PID.pid_out + feedforward_0));
 //				int16_t speed_2 = (int16_t)(-(Motor2_PID.pid_out + feedforward_1));
 //				int16_t speed_3 = (int16_t)(-(Motor3_PID.pid_out + feedforward_2));
-
+//				Contrl_Speed(speed_1, speed_2, speed_3, NULL);
 
 				Contrl_Speed(vel_1, vel_2, vel_3, NULL);
-//				Contrl_Speed(speed_1, speed_2, speed_3, NULL);
+
 				
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
 	}

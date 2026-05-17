@@ -6,7 +6,7 @@
 
 #define MAX_VEL  0.2f
 #define MAX_ACC  0.5f
-#define STEP_SIZE 100.0f
+#define STEP_SIZE 0.05f
 #define M_PI 3.1415926535f
 
 #define PULSE_PER_REVOLUTION   (11 * 4)
@@ -22,6 +22,7 @@
 #define JOINT2_MIN  0
 #define JOINT2_MAX  3.1416f
 
+#define TAU_TO_SPEED_FF  0.01f   // 例：0.01 → 每 N·m 对应 1% 速度量程
 
 typedef struct
 {
