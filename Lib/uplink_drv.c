@@ -18,9 +18,9 @@ void Uplink_Init(void)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) 
 {
-    if (huart->Instance == UART5 && Size == UPLINK_FRAME_LEN) 
+    if (huart->Instance == USART1 && Size == UPLINK_FRAME_LEN) 
 		{
-			if (dma_rx_buf[0] == FRAME_START && dma_rx_buf[7] == FRAME_LAST) 
+			if (dma_rx_buf[0] == FRAME_START && dma_rx_buf[UPLINK_FRAME_LEN -1 ] == FRAME_LAST) 
 			{
 				latest_cmd.x =     (int8_t)dma_rx_buf[1];
 				latest_cmd.y =     (int8_t)dma_rx_buf[2];
