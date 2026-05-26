@@ -39,6 +39,7 @@
 /* USER CODE BEGIN PD */
 SemaphoreHandle_t remote_semaphore;
 SemaphoreHandle_t action_semaphore;
+SemaphoreHandle_t g_EncoderMutex; 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,7 +49,7 @@ SemaphoreHandle_t action_semaphore;
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+TaskHandle_t ZDT_Parse_RunHandle;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -85,6 +86,7 @@ void MX_FREERTOS_Init(void) {
   /* add semaphores, ... */
 remote_semaphore=xSemaphoreCreateBinary();
 action_semaphore=xSemaphoreCreateBinary();
+
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -100,6 +102,7 @@ action_semaphore=xSemaphoreCreateBinary();
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
+
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
