@@ -5,12 +5,20 @@
 #include "PID_old.h"
 #include "micro_kdl.h"
 #include "uplink_drv.h"
+#include "ZDT_Emm.h"
+#include "usart.h"
+
+extern uint8_t dma_rx_buf[UPLINK_FRAME_LEN];
+extern UplinkCommand latest_cmd;
+extern volatile uint8_t new_cmd_flag;
+ 
+extern UART_HandleTypeDef huart1;
+extern DMA_HandleTypeDef hdma_usart1_rx;
 
 static Mikdl_Robot RobotArm;          // 机械臂结构体
 static Mikdl_Vector3 q_curr;          // 当前关节角度
 static Mikdl_Vector3 p_curr;          // 当前末端位置
 static Mikdl_Vector3 q_home;          // 上电时机械臂姿态对应的关节角
-static int manual_test_done = 0;
 
 // 梯形规划轨迹相关
 static Mikdl_TrapProfile trap;
@@ -20,91 +28,97 @@ static float total_dist;
 static uint32_t traj_start_tick;
 static uint8_t traj_active = 0;
 
-// PID
-PID2 Motor1_PID = {
-	.Kp = 2.2f,
-	.Ki = 0.0f,
-	.Kd = 4.0f,
-	.limit = 10000.0f,
-	.output_limit = 3000.0f
-};
-PID2 Motor2_PID = {
-	.Kp = 0.0f,
-	.Ki = 0.0f,
-	.Kd = 0.0f,
-	.limit = 10000.0f,
-	.output_limit = 3000.0f
-};
-PID2 Motor3_PID = {
-	.Kp = 0.0f,
-	.Ki = 0.0f,
-	.Kd = 0.0f,
-	.limit = 10000.0f,
-	.output_limit = 3000.0f
+ZDT_Emm_t ZDT_Emm[3] = 
+{
+    {.huart = &huart8, .addr = 0x01, .checksum = CHECKSUM_FIXED_6B},
+    {.huart = &huart5, .addr = 0x02, .checksum = CHECKSUM_FIXED_6B},
+    {.huart = &huart9, .addr = 0x03, .checksum = CHECKSUM_FIXED_6B}
 };
 
-// 期望参数 
-Param motor1;
-Param motor2;
-Param motor3;
-
-TEXT_Param M1;
-TEXT_Param M2;
-TEXT_Param M3;
-
-int16_t vel_1;
-int16_t vel_2;
-int16_t vel_3;
+Joint_t Joint[3] = {
+    {.zdt = &ZDT_Emm[0], .dir = 2.5f },
+    {.zdt = &ZDT_Emm[1], .dir = 1.0f },
+    {.zdt = &ZDT_Emm[2], .dir = 1.0f }
+};
 
 int ALL_num = 0; // 总通信计数
+uint8_t cnt = 0; // 计数反馈and发送
+float start_rad[3];
 
-extern SemaphoreHandle_t g_EncoderMutex; 
+static __attribute__((section(".dma_buffer"), aligned(32))) uint8_t rx_buf[3][3][32];
+static uint16_t parse_size[3][3];
+static volatile uint8_t rx_write_index[3];
+static volatile uint8_t rx_read_index[3];
+static volatile uint8_t rx_pending_count[3];
 
-// 电机数据
-extern int Encoder_Offset[4];
-extern int Encoder_Now[4];
-extern float g_Speed[4];
-extern volatile uint8_t g_recv_flag;
 
 
 TaskHandle_t ARM2_Handle; 
 void ARM2(void *pvParameters)
 {
-	send_upload_data(true, true, true);
-	
-	// 配置全部电机(广播)
-	send_motor_type(MOTOR_520);      // 配置电机类型
-	vTaskDelay(100);
-	send_pulse_phase(56);            // 配置减速比
-	vTaskDelay(100);
-	send_pulse_line(11);             // 配置磁环线
-	vTaskDelay(100);
-	send_wheel_diameter(67.00);      // 配置轮子直径
-	vTaskDelay(100);
-	send_motor_deadzone(1900);       // 配置电机死区
-	vTaskDelay(100);
-	send_motor_PID(1.0f, 0.0f, 0.0f);
-	vTaskDelay(100);
+    // 启动 DMA 接收
+    HAL_UARTEx_ReceiveToIdle_DMA(Joint[0].zdt->huart, rx_buf[0][0], sizeof(rx_buf[0][0]));
+    HAL_UARTEx_ReceiveToIdle_DMA(Joint[1].zdt->huart, rx_buf[1][0], sizeof(rx_buf[1][0]));
+    HAL_UARTEx_ReceiveToIdle_DMA(Joint[2].zdt->huart, rx_buf[2][0], sizeof(rx_buf[2][0]));
+    
+    // 关闭过半中断（Half Transfer Interrupt）
+    __HAL_DMA_DISABLE_IT(Joint[0].zdt->huart->hdmarx, DMA_IT_HT);
+    __HAL_DMA_DISABLE_IT(Joint[1].zdt->huart->hdmarx, DMA_IT_HT);
+    __HAL_DMA_DISABLE_IT(Joint[2].zdt->huart->hdmarx, DMA_IT_HT);
+    
+    Emm_Init(Joint[0].zdt, 0x01, &huart8);
+    Emm_Init(Joint[1].zdt, 0x02, &huart5);
+    Emm_Init(Joint[2].zdt, 0x03, &huart9);
+
+    vTaskDelay(1500);
+
+    Emm_V5_Enable(Joint[0].zdt, true);
+    Emm_V5_Enable(Joint[1].zdt, true);
+    Emm_V5_Enable(Joint[2].zdt, true);
+
+    vTaskDelay(1000);
+
+    Emm_V5_Clear_Position(Joint[0].zdt);
+    Emm_V5_Clear_Position(Joint[1].zdt);
+    Emm_V5_Clear_Position(Joint[2].zdt);
+
+    Joint[0].zdt_st.exp_pos = DEG_TO_RAD(2.5f * start_rad[0]);
+    Joint[1].zdt_st.exp_pos = DEG_TO_RAD(start_rad[1]);
+    Joint[2].zdt_st.exp_pos = DEG_TO_RAD(start_rad[2]);
+
 	
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-		if(g_recv_flag == 1)
-		{
-			g_recv_flag = 0;
-			
-			Deal_data_real();
-		}
+    cnt++;
+    cnt%=3;
+    if(cnt==0)
+    {
+			SysParams_Emm_t cur_vel = S_VEL;
+			for(uint8_t i=0;i<3;i++)
+			{
+				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_vel);
+			}
+            
+    }
+    else if(cnt==2)
+    { 
+			SysParams_Emm_t cur_pos = S_CPOS;
+			for(uint8_t i=0;i<3;i++)
+			{
+				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_pos);
+			}
+    }
 		
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
 	}
 }
 
 void RobotArm_Init(void)
-{	
-    // 初始关节角度 (0, 45, 90)
+{	 
+    // 初始关节角度 (0, 90, 90)
     q_home.x = 0.0f;      // 底座无要求
-    q_home.y = 0.7854f;   // 大臂45°
+    q_home.y = 1.5708f;   // 大臂90°
     q_home.z = 1.5708f;   // 小臂垂直向上
 	
 	  // 此时编码器刚上电，值为0，所以实际关节角 = q_home
@@ -134,71 +148,13 @@ void Analysis(void *pvParameters)
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-// 这段代码的存在仅用于验证cmd赋值后逆解的可行性 (注意因为debug使用编码器反馈一直为0所以达到目标值后直接归0)
-//		if (!manual_test_done) 
-//		{
-//			cmd.x = 11;
-//			cmd.y = 13;
-//			cmd.z = 16;
-//			manual_test_done = 1;
-
-//			// 手动启动轨迹
-//			Mikdl_Vector3 p_target = p_curr;
-//			p_target.x += cmd.x * STEP_SIZE;
-//			p_target.y += cmd.y * STEP_SIZE;
-//			p_target.z += cmd.z * STEP_SIZE;
-//			float dx = p_target.x - p_curr.x;
-//			float dy = p_target.y - p_curr.y;
-//			float dz = p_target.z - p_curr.z;
-//			float dist = sqrtf(dx*dx + dy*dy + dz*dz);
-//			if (dist > 1e-6f) 
-//			{
-//				p_start = p_curr;
-//				total_dist = dist;
-//				dir_unit.x = dx / dist;
-//				dir_unit.y = dy / dist;
-//				dir_unit.z = dz / dist;
-//				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
-//				traj_start_tick = xTaskGetTickCount();
-//				traj_active = 1;
-//			}
-//		}
-
-		  // 更新真实关节角和末端位置（基于编码器反馈）
-			q_curr.x = q_home.x + (float)((float)Encoder_Now[0] / RAD2ENC_FACTOR_JOINT0);
-			q_curr.y = q_home.y + (float)((float)Encoder_Now[1] / RAD2ENC_FACTOR_JOINT);
-			q_curr.z = q_home.z + (float)((float)Encoder_Now[2] / RAD2ENC_FACTOR_JOINT);
+		  // 更新真实关节角和末端位置
+			q_curr.x = q_home.x + Joint[0].cur_pos;   // 底座
+			q_curr.y = q_home.y + Joint[1].cur_pos;   // 大臂
+			q_curr.z = q_home.z + Joint[2].cur_pos;   // 小臂
 		
 			mikdl_forward_kinematics(&RobotArm, &q_curr, &p_curr);
 			
-// 此方案是以底座为坐标原点
-//		if (Uplink_GetCommand(&cmd))
-//		 {
-//			// 根据 cmd.x, cmd.y, cmd.z 计算末端目标位置
-//			Mikdl_Vector3 p_target = p_curr;
-//			p_target.x += cmd.x * STEP_SIZE;
-//			p_target.y += cmd.y * STEP_SIZE;
-//			p_target.z += cmd.z * STEP_SIZE;
-
-//			// 计算位移
-//			float dx = p_target.x - p_curr.x;
-//			float dy = p_target.y - p_curr.y;
-//			float dz = p_target.z - p_curr.z;
-//			float dist = sqrtf(dx*dx + dy*dy + dz*dz); // 三维直线距离
-
-//			if (dist > 1e-6f) // 10的负六次方
-//			{
-//				p_start = p_curr;              // 记录起点
-//				total_dist = dist;             // 总距离
-//				dir_unit.x = dx / dist;        // 计算方向单位向量
-//				dir_unit.y = dy / dist;        
-//				dir_unit.z = dz / dist;        
-//				
-//				mikdl_trap_init(&trap, 0.0f, dist, MAX_VEL, MAX_ACC);
-//				traj_start_tick = xTaskGetTickCount();
-//				traj_active = 1;
-//			}
-//	   }
 		if (Uplink_GetCommand(&cmd))
 		{
 				// 1. 计算当前末端姿态
@@ -213,7 +169,7 @@ void Analysis(void *pvParameters)
 				// 2. 定义末端坐标系的三个轴（在世界坐标系中的表示）
 				// 这里假设：
 				//   Z轴 — 沿小臂向外（相机前方）
-				//   Y轴 — 垂直于运动平面（水平向左/右）
+				//   Y轴 — 垂直于运动平面（水平向左/右
 				//   X轴 — 由右手定则确定（Y × Z）
 				Mikdl_Vector3 e_z;
 				e_z.x = c_theta * c_phi;
@@ -310,62 +266,142 @@ void Analysis(void *pvParameters)
 					 &tau_out);
 			
 // 进行debug时保持注释状态
-//					if (ret == MIKDL_SUCCESS) 
-//					{
-////					  if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX)
-//						if (q_out.y >= JOINT1_MIN && q_out.y <= JOINT1_MAX && q_out.z >= JOINT2_MIN && q_out.z <= JOINT2_MAX)
-//						{
-//							motor1.Exp_encoder = (int32_t)((q_out.x - q_home.x) * RAD2ENC_FACTOR_JOINT0 + 0.5f);
-//							motor2.Exp_encoder = (int32_t)((q_out.y - q_home.y) * RAD2ENC_FACTOR_JOINT + 0.5f);
-//							motor3.Exp_encoder = (int32_t)((q_out.z - q_home.z) * RAD2ENC_FACTOR_JOINT + 0.5f);
-//							ALL_num++;
-//				  	} 
-//				   	else
-//						{
-//							motor1.Exp_encoder = Encoder_Now[0];
-//							motor2.Exp_encoder = Encoder_Now[1];
-//							motor3.Exp_encoder = Encoder_Now[2];
-//							traj_active = 0;
-//				  	}
-//					}
-//					else 
-//					{
-//						motor1.Exp_encoder = Encoder_Now[0];
-//						motor2.Exp_encoder = Encoder_Now[1];
-//						motor3.Exp_encoder = Encoder_Now[2];
-//					  traj_active = 0;
-//					}
-
-				// 电机 1 (底座)
- 				PID_Control2((float)Encoder_Now[0], (float)motor1.Exp_encoder, &Motor1_PID);
-				// 电机 2 `
-				PID_Control2((float)Encoder_Now[1], (float)motor2.Exp_encoder, &Motor2_PID);
-				// 电机 3 
-				PID_Control2((float)Encoder_Now[2], (float)motor3.Exp_encoder, &Motor3_PID);
-				
-// 原始输入
-//				vel_1 = -(int16_t)Motor1_PID.pid_out;
-//				vel_2 = -(int16_t)Motor2_PID.pid_out;
-//				vel_3 = -(int16_t)Motor3_PID.pid_out;
-
-// 重力补偿
-				vel_1 = -(int16_t)(Motor1_PID.pid_out);
-				vel_2 = -(int16_t)(Motor2_PID.pid_out + TAU_TO_SPEED_FF1 * tau_out.y);
-				vel_3 = -(int16_t)(Motor3_PID.pid_out + TAU_TO_SPEED_FF2 * tau_out.z);
+				if (ret == MIKDL_SUCCESS) 
+				{
+					Joint[0].zdt_st.exp_pos = (q_out.x - q_home.x) * Joint[0].dir;
+					Joint[1].zdt_st.exp_pos = (q_out.y - q_home.y) * Joint[1].dir;
+					Joint[2].zdt_st.exp_pos = (q_out.z - q_home.z) * Joint[2].dir;
 					
-// 速度前馈
-//				float feedforward_0 = dq_out.x * RAD2ENC_FACTOR_JOINT0;
-//				float feedforward_1 = dq_out.y * RAD2ENC_FACTOR_JOINT;
-//				float feedforward_2 = dq_out.z * RAD2ENC_FACTOR_JOINT;
+				  for(uint8_t i = 0;i < 3;i++)
+			 		{
+			 			Emm_V5_Position(Joint[i].zdt, Joint[i].zdt_st.exp_pos > 0 ? DIR_CW : DIR_CCW, 20, 250,Emm_Angle_To_Pulses(RAD_TO_DEG(fabsf(Joint[i].zdt_st.exp_pos))), true, false);
+			 		}
+			 		ALL_num++;
+				}
 
-//				int16_t speed_1 = (int16_t)(-(Motor1_PID.pid_out + feedforward_0));
-//				int16_t speed_2 = (int16_t)(-(Motor2_PID.pid_out + feedforward_1));
-//				int16_t speed_3 = (int16_t)(-(Motor3_PID.pid_out + feedforward_2));
-//				Contrl_Speed(speed_1, speed_2, speed_3, NULL);
-
-				Contrl_Speed(vel_1, vel_2, vel_3, NULL);
-
+				
+/******************************************************************************************/
+					
 				
  vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
 	}
+}
+
+TaskHandle_t ZDT_Parse_Run_Handle;
+void ZDT_Parse_Run(void *parameter)
+{
+    for (;;) {
+        uint32_t notified = 0;
+        if (xTaskNotifyWait(0, 0xFFFFFFFFu, &notified, portMAX_DELAY) == pdTRUE) {
+            for (uint8_t i = 0; i < 3; i++) {
+                if (notified & (1u << i)) {
+                    while (rx_pending_count[i] > 0U) {
+                        uint8_t read_index = rx_read_index[i];
+                        ZDT_Parse_One(i, rx_buf[i][read_index], parse_size[i][read_index]);
+                        rx_read_index[i] = (read_index + 1U) % 3U;
+                        rx_pending_count[i]--;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 步进电机回调数据处理 此处回调为弧度
+static void ZDT_Parse_One(uint8_t buf_index, const uint8_t *data, uint16_t size)
+{
+    Emm_Read_vel_pos(Joint[buf_index].zdt, data, size);
+
+    Joint[buf_index].zdt_st.cur_pos = DEG_TO_RAD(Emm_Encoder_To_Angle(Joint[buf_index].zdt->sys_status.current_position));
+    Joint[buf_index].zdt_st.cur_vel = Joint[buf_index].zdt->sys_status.velocity * 2.0f * M_PI / 30.0f;
+
+    Joint[buf_index].cur_pos = (Joint[buf_index].zdt_st.cur_pos / Joint[buf_index].dir);
+    Joint[buf_index].cur_vel = (Joint[buf_index].zdt_st.cur_vel / Joint[buf_index].dir);
+ 
+}
+
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    uint8_t buf_index = 0xFF;
+
+    if (huart == ZDT_Emm[0].huart) buf_index = 0;
+    else if (huart == ZDT_Emm[1].huart) buf_index = 1;
+    else if (huart == ZDT_Emm[2].huart) buf_index = 2;
+
+    if (buf_index != 0xFF) {
+        uint8_t write_index = rx_write_index[buf_index];
+
+        if (Size > sizeof(rx_buf[buf_index][write_index])) {
+            Size = sizeof(rx_buf[buf_index][write_index]);
+        }
+
+        parse_size[buf_index][write_index] = Size;
+
+        if (rx_pending_count[buf_index] < 3U) {
+            rx_pending_count[buf_index]++;
+        } else {
+            rx_read_index[buf_index] = (rx_read_index[buf_index] + 1U) % 3U;
+        }
+
+        rx_write_index[buf_index] = (write_index + 1U) % 3U;
+
+        HAL_UARTEx_ReceiveToIdle_DMA(huart, rx_buf[buf_index][rx_write_index[buf_index]], sizeof(rx_buf[buf_index][rx_write_index[buf_index]]));
+        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xTaskNotifyFromISR(ZDT_Parse_Run_Handle, (1u << buf_index), eSetBits, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);	
+    }
+		
+		if (huart->Instance == USART1 && Size == UPLINK_FRAME_LEN) 
+		{
+			if (dma_rx_buf[0] == FRAME_START && dma_rx_buf[UPLINK_FRAME_LEN -1 ] == FRAME_LAST) 
+			{
+				latest_cmd.x =     (int8_t)dma_rx_buf[1];
+				latest_cmd.y =     (int8_t)dma_rx_buf[2];
+				latest_cmd.z =     (int8_t)dma_rx_buf[3];
+				latest_cmd.one =   (int8_t)dma_rx_buf[4];
+				latest_cmd.two =   (int8_t)dma_rx_buf[5];
+				latest_cmd.three = (int8_t)dma_rx_buf[6];
+				new_cmd_flag = 1;
+			}
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, UPLINK_FRAME_LEN);
+	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+    }	
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    for (uint8_t i = 0; i < 3; i++) {
+        if (ZDT_Emm[i].huart == huart) {
+            ZDT_Emm[i].tx_busy = true;
+            break;
+        }
+    }
+    
+    __HAL_UART_CLEAR_IDLEFLAG(huart);
+    HAL_UART_DMAStop(huart);
+
+    __HAL_UART_CLEAR_FLAG(huart,
+                          UART_CLEAR_OREF |
+                              UART_CLEAR_FEF |
+                              UART_CLEAR_NEF |
+                              UART_CLEAR_PEF);
+
+    __HAL_UART_SEND_REQ(huart, UART_RXDATA_FLUSH_REQUEST);
+
+    // 重新启动接收并关闭过半中断
+    if (huart == ZDT_Emm[0].huart) {
+        HAL_UARTEx_ReceiveToIdle_DMA(Joint[0].zdt->huart, rx_buf[0][rx_write_index[0]], sizeof(rx_buf[0][rx_write_index[0]]));
+        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+
+    } else if (huart == ZDT_Emm[1].huart) {
+        HAL_UARTEx_ReceiveToIdle_DMA(Joint[1].zdt->huart, rx_buf[1][rx_write_index[1]], sizeof(rx_buf[1][rx_write_index[1]]));
+        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+
+    } else if (huart == ZDT_Emm[2].huart) {
+        HAL_UARTEx_ReceiveToIdle_DMA(Joint[2].zdt->huart, rx_buf[2][rx_write_index[2]], sizeof(rx_buf[2][rx_write_index[2]]));
+        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+    }
 }
