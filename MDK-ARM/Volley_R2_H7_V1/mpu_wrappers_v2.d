@@ -1,17 +1,18 @@
-volley_r2_h7_v1/mpu_wrappers_v2.o: \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\Common\mpu_wrappers_v2.c \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
-  ..\Core\Inc\FreeRTOSConfig.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\RVDS\ARM_CM4F\portmacro.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\queue.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\timers.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\event_groups.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\stream_buffer.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_prototypes.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_syscall_numbers.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/Common/mpu_wrappers_v2.c
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Core/Inc/FreeRTOSConfig.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/stream_buffer.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_prototypes.h
+volley_r2_h7_v1\mpu_wrappers_v2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_syscall_numbers.h

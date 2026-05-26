@@ -1,12 +1,15 @@
-volley_r2_h7_v1/queue.o: \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\queue.c \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
-  ..\Core\Inc\FreeRTOSConfig.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\portable\RVDS\ARM_CM4F\portmacro.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
-  ..\Middlewares\Third_Party\FreeRTOS\Source\include\queue.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/queue.c
+volley_r2_h7_v1\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+volley_r2_h7_v1\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+volley_r2_h7_v1\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+volley_r2_h7_v1\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+volley_r2_h7_v1\queue.o: ../Core/Inc/FreeRTOSConfig.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
+volley_r2_h7_v1\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h

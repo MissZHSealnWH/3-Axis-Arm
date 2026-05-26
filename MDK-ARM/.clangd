@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - -IC:\Keil_v5\ARM\ARMCLANG/include
+    - -IC:\Keil_v5\ARM\ARMCLANG/include/libcxx
+  Remove: []
+  CompilationDatabase: ./build/Volley_R2_H7_V1
+  Compiler: C:\Keil_v5\ARM\ARMCLANG\bin\armclang.exe
