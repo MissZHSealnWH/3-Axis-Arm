@@ -8,9 +8,26 @@
 #include "ZDT_Emm.h"
 #include "usart.h"
 
-extern uint8_t dma_rx_buf[UPLINK_FRAME_LEN];
-extern UplinkCommand latest_cmd;
-extern volatile uint8_t new_cmd_flag;
+extern SemaphoreHandle_t action_semaphore;
+
+extern UART_HandleTypeDef huart1;
+extern DMA_HandleTypeDef hdma_usart1_rx;
+
+uint8_t dma_rx_buf[UPLINK_FRAME_LEN];
+UplinkCommand latest_cmd;
+volatile uint8_t new_cmd_flag = 0;
+
+int Uplink_GetCommand(UplinkCommand *cmd) 
+{
+	if (new_cmd_flag) 
+	{
+		new_cmd_flag = 0;
+		*cmd = latest_cmd;
+		return 1;
+	}
+	return 0;
+}
+
  
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -30,89 +47,27 @@ static uint8_t traj_active = 0;
 
 ZDT_Emm_t ZDT_Emm[3] = 
 {
-    {.huart = &huart8, .addr = 0x01, .checksum = CHECKSUM_FIXED_6B},
+    {.huart = &huart5, .addr = 0x01, .checksum = CHECKSUM_FIXED_6B},
     {.huart = &huart5, .addr = 0x02, .checksum = CHECKSUM_FIXED_6B},
-    {.huart = &huart9, .addr = 0x03, .checksum = CHECKSUM_FIXED_6B}
+    {.huart = &huart5, .addr = 0x03, .checksum = CHECKSUM_FIXED_6B}
 };
 
 Joint_t Joint[3] = {
-    {.zdt = &ZDT_Emm[0], .dir = 2.5f },
-    {.zdt = &ZDT_Emm[1], .dir = 1.0f },
-    {.zdt = &ZDT_Emm[2], .dir = 1.0f }
+    {.zdt = &ZDT_Emm[0], .dir = -2.0f },
+    {.zdt = &ZDT_Emm[1], .dir = -2.0f },
+    {.zdt = &ZDT_Emm[2], .dir =  1.0f }
 };
 
 int ALL_num = 0; // 总通信计数
-uint8_t cnt = 0; // 计数反馈and发送
+volatile uint8_t cnt = 0; // 计数反馈and发送
+
 float start_rad[3];
 
-static __attribute__((section(".dma_buffer"), aligned(32))) uint8_t rx_buf[3][3][32];
-static uint16_t parse_size[3][3];
-static volatile uint8_t rx_write_index[3];
-static volatile uint8_t rx_read_index[3];
-static volatile uint8_t rx_pending_count[3];
-
-
-
-TaskHandle_t ARM2_Handle; 
-void ARM2(void *pvParameters)
-{
-    // 启动 DMA 接收
-    HAL_UARTEx_ReceiveToIdle_DMA(Joint[0].zdt->huart, rx_buf[0][0], sizeof(rx_buf[0][0]));
-    HAL_UARTEx_ReceiveToIdle_DMA(Joint[1].zdt->huart, rx_buf[1][0], sizeof(rx_buf[1][0]));
-    HAL_UARTEx_ReceiveToIdle_DMA(Joint[2].zdt->huart, rx_buf[2][0], sizeof(rx_buf[2][0]));
-    
-    // 关闭过半中断（Half Transfer Interrupt）
-    __HAL_DMA_DISABLE_IT(Joint[0].zdt->huart->hdmarx, DMA_IT_HT);
-    __HAL_DMA_DISABLE_IT(Joint[1].zdt->huart->hdmarx, DMA_IT_HT);
-    __HAL_DMA_DISABLE_IT(Joint[2].zdt->huart->hdmarx, DMA_IT_HT);
-    
-    Emm_Init(Joint[0].zdt, 0x01, &huart8);
-    Emm_Init(Joint[1].zdt, 0x02, &huart5);
-    Emm_Init(Joint[2].zdt, 0x03, &huart9);
-
-    vTaskDelay(1500);
-
-    Emm_V5_Enable(Joint[0].zdt, true);
-    Emm_V5_Enable(Joint[1].zdt, true);
-    Emm_V5_Enable(Joint[2].zdt, true);
-
-    vTaskDelay(1000);
-
-    Emm_V5_Clear_Position(Joint[0].zdt);
-    Emm_V5_Clear_Position(Joint[1].zdt);
-    Emm_V5_Clear_Position(Joint[2].zdt);
-
-    Joint[0].zdt_st.exp_pos = DEG_TO_RAD(2.5f * start_rad[0]);
-    Joint[1].zdt_st.exp_pos = DEG_TO_RAD(start_rad[1]);
-    Joint[2].zdt_st.exp_pos = DEG_TO_RAD(start_rad[2]);
-
-	
- TickType_t Last_wake_time = xTaskGetTickCount();
-	for(;;)
-	{
-    cnt++;
-    cnt%=3;
-    if(cnt==0)
-    {
-			SysParams_Emm_t cur_vel = S_VEL;
-			for(uint8_t i=0;i<3;i++)
-			{
-				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_vel);
-			}
-            
-    }
-    else if(cnt==2)
-    { 
-			SysParams_Emm_t cur_pos = S_CPOS;
-			for(uint8_t i=0;i<3;i++)
-			{
-				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_pos);
-			}
-    }
-		
- vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
-	}
-}
+static __attribute__((section(".dma_buffer"), aligned(32))) uint8_t rx_buf[3][32];
+static uint16_t parse_size[3];
+static volatile uint8_t rx_write_index;
+static volatile uint8_t rx_read_index;
+static volatile uint8_t rx_pending_count;
 
 void RobotArm_Init(void)
 {	 
@@ -125,8 +80,8 @@ void RobotArm_Init(void)
     q_curr = q_home;
 	
 	  mikdl_robot_default(&RobotArm);
-    RobotArm.l1 = 0.15f;
-    RobotArm.l2 = 0.1f;
+    RobotArm.l1 = 0.07f;
+    RobotArm.l2 = 0.12f;
     RobotArm.m1 = 0.18f;
     RobotArm.m2 = 0.163f;
     RobotArm.c1 = 0.04f;
@@ -140,15 +95,67 @@ void RobotArm_Init(void)
 }
 
 UplinkCommand cmd;
-TaskHandle_t Analysis_Handle;
-void Analysis(void *pvParameters)
+
+TaskHandle_t ARM2_Handle; 
+void ARM2(void *pvParameters)
 {
-	RobotArm_Init();
 	
+		    // 启动 DMA 接收
+   HAL_UARTEx_ReceiveToIdle_DMA(&huart5, rx_buf[0], sizeof(rx_buf[0]));
+   __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);
+    
+    Emm_Init(Joint[0].zdt, 0x01, &huart5);
+    Emm_Init(Joint[1].zdt, 0x02, &huart5);
+    Emm_Init(Joint[2].zdt, 0x03, &huart5);
+
+    vTaskDelay(1500);
+	
+    xSemaphoreTake(action_semaphore, portMAX_DELAY);
+    Emm_V5_Enable(Joint[0].zdt, true);
+	  xSemaphoreTake(action_semaphore, portMAX_DELAY);
+    Emm_V5_Enable(Joint[1].zdt, true);
+	  xSemaphoreTake(action_semaphore, portMAX_DELAY);
+    Emm_V5_Enable(Joint[2].zdt, true);
+
+    vTaskDelay(1000);
+
+		for (int i = 0; i < 3; i++) 
+	 {
+			xSemaphoreTake(action_semaphore, portMAX_DELAY);
+			Emm_V5_Clear_Position(Joint[i].zdt);
+		}
+	 for (int i = 0; i < 3; i++) 
+		{
+			SysParams_Emm_t cur_pos = S_CPOS;
+			xSemaphoreTake(action_semaphore, portMAX_DELAY);
+			Emm_V5_Read_Sys_Param(Joint[i].zdt, cur_pos);
+		}
+
+		vTaskDelay(50);
+
+    Joint[0].zdt_st.exp_pos = DEG_TO_RAD(2.5f * start_rad[0]);
+    Joint[1].zdt_st.exp_pos = DEG_TO_RAD(start_rad[1]);
+    Joint[2].zdt_st.exp_pos = DEG_TO_RAD(start_rad[2]);
+		
+  	RobotArm_Init();
+		
  TickType_t Last_wake_time = xTaskGetTickCount();
 	for(;;)
 	{
-		  // 更新真实关节角和末端位置
+    cnt++;
+    cnt%=3;
+    if(cnt == 0)
+    {
+			SysParams_Emm_t cur_vel = S_VEL;
+			for(uint8_t i = 0;i < 3;i++)
+			{
+				xSemaphoreTake(action_semaphore, portMAX_DELAY);
+				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_vel);
+			}
+    }
+		else if(cnt == 1)
+		{
+      // 更新真实关节角和末端位置
 			q_curr.x = q_home.x + Joint[0].cur_pos;   // 底座
 			q_curr.y = q_home.y + Joint[1].cur_pos;   // 大臂
 			q_curr.z = q_home.z + Joint[2].cur_pos;   // 小臂
@@ -274,34 +281,52 @@ void Analysis(void *pvParameters)
 					
 				  for(uint8_t i = 0;i < 3;i++)
 			 		{
-			 			Emm_V5_Position(Joint[i].zdt, Joint[i].zdt_st.exp_pos > 0 ? DIR_CW : DIR_CCW, 20, 250,Emm_Angle_To_Pulses(RAD_TO_DEG(fabsf(Joint[i].zdt_st.exp_pos))), true, false);
+						xSemaphoreTake(action_semaphore, portMAX_DELAY);
+			 			Emm_V5_Position(Joint[i].zdt, Joint[i].zdt_st.exp_pos > 0 ? DIR_CW : DIR_CCW, 20, 250, Emm_Angle_To_Pulses(RAD_TO_DEG(fabsf(Joint[i].zdt_st.exp_pos))), true, false);
+			 	  	
 			 		}
-			 		ALL_num++;
+					ALL_num++;
 				}
-
-				
-/******************************************************************************************/
-					
-				
- vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(10));
+		}
+    else if(cnt == 2)
+    { 
+			SysParams_Emm_t cur_pos = S_CPOS;
+			for(uint8_t i = 0;i < 3;i++)
+			{
+				xSemaphoreTake(action_semaphore, portMAX_DELAY);
+				Emm_V5_Read_Sys_Param(Joint[i].zdt,cur_pos);
+			}
+    }
+		
+ vTaskDelayUntil(&Last_wake_time, pdMS_TO_TICKS(7));
 	}
 }
+
 
 TaskHandle_t ZDT_Parse_Run_Handle;
 void ZDT_Parse_Run(void *parameter)
 {
+    (void)parameter;
     for (;;) {
         uint32_t notified = 0;
         if (xTaskNotifyWait(0, 0xFFFFFFFFu, &notified, portMAX_DELAY) == pdTRUE) {
-            for (uint8_t i = 0; i < 3; i++) {
-                if (notified & (1u << i)) {
-                    while (rx_pending_count[i] > 0U) {
-                        uint8_t read_index = rx_read_index[i];
-                        ZDT_Parse_One(i, rx_buf[i][read_index], parse_size[i][read_index]);
-                        rx_read_index[i] = (read_index + 1U) % 3U;
-                        rx_pending_count[i]--;
+            while (rx_pending_count > 0U) {
+                uint8_t read_index = rx_read_index;
+                const uint8_t *data = rx_buf[read_index];
+                uint16_t size = parse_size[read_index];
+
+                if (size >= 4) {
+                    uint8_t addr = data[0];   // 帧第一个字节是电机地址
+                    // 找到对应的 Joint
+                    for (int i = 0; i < 3; i++) {
+                        if (Joint[i].zdt->addr == addr) {
+                            ZDT_Parse_One(i, data, size);
+                            break;
+                        }
                     }
                 }
+                rx_read_index = (read_index + 1U) % 3U;
+                rx_pending_count--;
             }
         }
     }
@@ -323,38 +348,32 @@ static void ZDT_Parse_One(uint8_t buf_index, const uint8_t *data, uint16_t size)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-    uint8_t buf_index = 0xFF;
+    // 步进电机 UART
+    if (huart->Instance == UART5)
+    {
+        uint8_t write_index = rx_write_index;
 
-    if (huart == ZDT_Emm[0].huart) buf_index = 0;
-    else if (huart == ZDT_Emm[1].huart) buf_index = 1;
-    else if (huart == ZDT_Emm[2].huart) buf_index = 2;
+        if (Size > sizeof(rx_buf[write_index]))
+            Size = sizeof(rx_buf[write_index]);
+        parse_size[write_index] = Size;
 
-    if (buf_index != 0xFF) {
-        uint8_t write_index = rx_write_index[buf_index];
+        if (rx_pending_count < 3U)
+            rx_pending_count++;
+        else
+            rx_read_index = (rx_read_index + 1U) % 3U;
 
-        if (Size > sizeof(rx_buf[buf_index][write_index])) {
-            Size = sizeof(rx_buf[buf_index][write_index]);
-        }
+        rx_write_index = (write_index + 1U) % 3U;
 
-        parse_size[buf_index][write_index] = Size;
-
-        if (rx_pending_count[buf_index] < 3U) {
-            rx_pending_count[buf_index]++;
-        } else {
-            rx_read_index[buf_index] = (rx_read_index[buf_index] + 1U) % 3U;
-        }
-
-        rx_write_index[buf_index] = (write_index + 1U) % 3U;
-
-        HAL_UARTEx_ReceiveToIdle_DMA(huart, rx_buf[buf_index][rx_write_index[buf_index]], sizeof(rx_buf[buf_index][rx_write_index[buf_index]]));
+        HAL_UARTEx_ReceiveToIdle_DMA(huart, rx_buf[rx_write_index], sizeof(rx_buf[rx_write_index]));
         __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
 
         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        xTaskNotifyFromISR(ZDT_Parse_Run_Handle, (1u << buf_index), eSetBits, &xHigherPriorityTaskWoken);
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);	
+        xTaskNotifyFromISR(ZDT_Parse_Run_Handle, 1u, eSetBits, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        return;
     }
 		
-		if (huart->Instance == USART1 && Size == UPLINK_FRAME_LEN) 
+	if (huart->Instance == USART1 && Size == UPLINK_FRAME_LEN) 
 		{
 			if (dma_rx_buf[0] == FRAME_START && dma_rx_buf[UPLINK_FRAME_LEN -1 ] == FRAME_LAST) 
 			{
@@ -373,35 +392,24 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-    for (uint8_t i = 0; i < 3; i++) {
-        if (ZDT_Emm[i].huart == huart) {
-            ZDT_Emm[i].tx_busy = true;
-            break;
-        }
-    }
-    
-    __HAL_UART_CLEAR_IDLEFLAG(huart);
-    HAL_UART_DMAStop(huart);
-
-    __HAL_UART_CLEAR_FLAG(huart,
-                          UART_CLEAR_OREF |
-                              UART_CLEAR_FEF |
-                              UART_CLEAR_NEF |
-                              UART_CLEAR_PEF);
-
-    __HAL_UART_SEND_REQ(huart, UART_RXDATA_FLUSH_REQUEST);
-
-    // 重新启动接收并关闭过半中断
-    if (huart == ZDT_Emm[0].huart) {
-        HAL_UARTEx_ReceiveToIdle_DMA(Joint[0].zdt->huart, rx_buf[0][rx_write_index[0]], sizeof(rx_buf[0][rx_write_index[0]]));
-        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
-
-    } else if (huart == ZDT_Emm[1].huart) {
-        HAL_UARTEx_ReceiveToIdle_DMA(Joint[1].zdt->huart, rx_buf[1][rx_write_index[1]], sizeof(rx_buf[1][rx_write_index[1]]));
-        __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
-
-    } else if (huart == ZDT_Emm[2].huart) {
-        HAL_UARTEx_ReceiveToIdle_DMA(Joint[2].zdt->huart, rx_buf[2][rx_write_index[2]], sizeof(rx_buf[2][rx_write_index[2]]));
+    if (huart->Instance == UART5)
+    {
+        // 标记所有电机发送忙？只需重启接收
+        __HAL_UART_CLEAR_IDLEFLAG(huart);
+        HAL_UART_DMAStop(huart);
+        // ... 清标志 ...
+        HAL_UARTEx_ReceiveToIdle_DMA(huart, rx_buf[rx_write_index], sizeof(rx_buf[rx_write_index]));
         __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
     }
+}
+
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == UART5)
+	{
+		BaseType_t temp;
+		xSemaphoreGiveFromISR(action_semaphore,&temp);
+		portYIELD_FROM_ISR(temp);
+	}
 }
